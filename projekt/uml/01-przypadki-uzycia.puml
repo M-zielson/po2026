@@ -1,0 +1,38 @@
+@startuml
+left to right direction
+
+' TODO: zastąpcie "Użytkownik" właściwą nazwą aktora (np. Klient, Pracownik,
+' Administrator...) i dodajcie kolejnych aktorów, jeśli ich macie więcej.
+actor "Użytkownik" as User
+
+package "Nazwa waszej aplikacji" {
+
+    ' TODO: to są tylko przykładowe, generyczne przypadki użycia.
+    ' Zastąpcie je / dopiszcie własne, dopasowane do waszego tematu projektu.
+    usecase "Zaloguj się" as UC_Login
+    usecase "Przeglądaj dane" as UC_Browse
+    usecase "Dodaj nowy element" as UC_Add
+    usecase "Edytuj istniejący element" as UC_Edit
+    usecase "Usuń element" as UC_Delete
+
+    User --> UC_Login
+    User --> UC_Browse
+    User --> UC_Add
+    User --> UC_Edit
+    User --> UC_Delete
+
+    ' Przykład relacji <<include>> — UC_Add zawsze wymaga bycia zalogowanym.
+    UC_Add .> UC_Login : <<include>>
+    UC_Edit .> UC_Login : <<include>>
+    UC_Delete .> UC_Login : <<include>>
+}
+
+' Wskazówki:
+' - left to right direction układa aktorów po lewej, przypadki po prawej
+'   (czytelniejsze przy więcej niż 1 aktorze).
+' - <<include>> = przypadek ZAWSZE wywołuje inny jako swoją część.
+' - <<extend>> = przypadek OPCJONALNIE rozszerza inny, tylko w pewnych warunkach.
+' - Grupujcie powiązane przypadki użycia w podpakiety (package "Nazwa grupy" { ... }),
+'   jeśli macie ich więcej niż 5-6 — tak jak w materiale z zajęć (system biblioteczny).
+
+@enduml

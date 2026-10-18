@@ -26,3 +26,40 @@ Uwagi:
 ## Laboratoria
 
 Materiały do poszczególnych laboratoriów będą dodawane na bieżąco w trakcie semestru.
+
+## Projekt
+
+Projekt rozwijacie w **tym samym forku**, w którym macie laboratorium — nie zakładajcie osobnego repozytorium, nie wysyłajcie zaproszeń do współpracy. Fork, który stworzyliście przy zapisie na temat (patrz sekcja wyżej), jest jedynym repozytorium projektu przez cały semestr.
+
+### Struktura katalogów
+
+W korzeniu forka, obok katalogu `lab/`, jest katalog `projekt/`:
+
+```
+po2026/
+  lab/              (bez zmian — jak dotychczas)
+  projekt/
+    uml/            ← diagramy projektowe (patrz niżej)
+    ...             ← reszta: wasz kod, dowolny system budowania
+```
+
+**Jedyny narzucony wymóg to podkatalog `projekt/uml/`.** Poza nim macie pełną dowolność — Maven, Gradle, Spring Boot, dowolna struktura pakietów — zgodnie z technologią, którą wybraliście dla swojego tematu.
+
+### Diagramy UML — PlantUML, tekstowo
+
+Diagramy projektowe (przypadki użycia, sekwencji, klas) piszecie jako kod w **PlantUML** (pliki `.puml`), nie rysujecie ich w narzędziu graficznym. Trafiają do repo jako zwykłe pliki tekstowe w `projekt/uml/` — bez eksportowania do PNG/SVG.
+
+Dlaczego tekstowo: historia zmian w plikach `.puml` pokazuje, jak wasz projekt ewoluował — to dla nas (i dla was) czytelniejsze niż porównywanie obrazków, i jest dowodem, że diagramy powstawały w trakcie pracy nad projektem, a nie na końcu "bo wymagane".
+
+**Jak podglądać diagram podczas pisania:**
+- **IntelliJ IDEA** — zainstalujcie plugin **PlantUML Integration** (Settings → Plugins → wyszukajcie "PlantUML Integration"). Pokazuje podgląd `.puml` na żywo w osobnym panelu, bez opuszczania IDE.
+- Alternatywnie: [plantuml.com/plantuml](https://www.plantuml.com/plantuml/uml/) — wklejcie kod, zobaczycie diagram w przeglądarce, bez instalacji.
+
+Rekomendowane nazewnictwo plików (kolejność = kolejność, w jakiej powstają diagramy):
+```
+projekt/uml/
+  01-przypadki-uzycia.puml
+  02-sekwencja-<nazwa-przypadku-uzycia>.puml   (jeden plik na przypadek użycia)
+  03-diagram-klas.puml
+  04-diagram-obiektow.puml                      (opcjonalnie)
+```

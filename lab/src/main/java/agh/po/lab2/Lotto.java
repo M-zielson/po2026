@@ -1,13 +1,18 @@
 package agh.po.lab2;
-import java.util.Scanner;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 public class Lotto
 {
     public static void main(String[] args)
     {
+        ArrayList<Integer> pewniaki = new ArrayList<>();
+        for (int i = 0;i<6;i++)
+        {
+            pewniaki.add(Integer.parseInt(args[i]));
+        }
 
         ArrayList<Integer> wylosowane = new ArrayList<>();
         Random r = new Random();
@@ -25,10 +30,25 @@ public class Lotto
             }
 
         }
-        ArrayList<Integer> pewniaki = new ArrayList<>();
-        System.out.print("Twoje typy: " + Arrays.toString(args) + "\n");
+
+        // Bardziej trywialny sposób
+        /*int trafienia = 0;
+        for (int typ : pewniaki)
+        {
+            if (wylosowane.contains(typ))
+            {
+                trafienia ++;
+            }
+        }
+        */
+
+        System.out.print("Twoje typy: " + pewniaki + "\n");
         System.out.print("Wylosowane liczby: " + wylosowane + "\n");
-        //System.out.print(wylosowane.retainAll(pewniaki).count());
+
+        wylosowane.retainAll(pewniaki);
+        int trafienia = wylosowane.toArray().length;
+
+        System.out.print("Liczba trafień: " + trafienia);
 
     }
 }

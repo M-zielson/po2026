@@ -1,8 +1,6 @@
 package agh.po.lab2;
 import java.util.ArrayList;
 import java.util.Random;
-import java.util.Arrays;
-import java.util.stream.Stream;
 
 public class Lotto
 {
@@ -30,17 +28,6 @@ public class Lotto
             }
 
         }
-
-        // Bardziej trywialny sposób
-        /*int trafienia = 0;
-        for (int typ : pewniaki)
-        {
-            if (wylosowane.contains(typ))
-            {
-                trafienia ++;
-            }
-        }
-        */
 
         System.out.print("Twoje typy: " + pewniaki + "\n");
         System.out.print("Wylosowane liczby: " + wylosowane + "\n");

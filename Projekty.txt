@@ -8,7 +8,7 @@ Kategoria A: Symulacje procesów i systemów (wysoki potencjał na polimorfizm)
 
 1) Symulator Elektrowni Wirtualnej (Virtual Power Plant): Agregacja rozproszonych źródeł energii (panele, wiatraki, magazyny) i bilansowanie produkcji z zapotrzebowaniem w czasie.
 
-2) System Zarządzania Ulem Pszczelim: Monitorowanie kolonii (temperatura, wilgotność, zapasy miodu), harmonogram przeglądów i alerty o rojeniu.
+2) System Zarządzania Ulem Pszczelim: Monitorowanie kolonii (temperatura, wilgotność, zapasy miodu), harmonogram przeglądów i alerty o rojeniu. Amelia Smosna, Martyna Kot
 
 3) Symulator Sortowni Paczek: Taśmociąg z czujnikami, sortowanie paczek według wagi/kierunku/priorytetu na odpowiednie rampy.
 
@@ -79,7 +79,7 @@ Kategoria D: Systemy specjalistyczne i domenowe (Idealne na diagramy przypadków
 33) System Zarządzania Flotą Dronów Dostawczych: Planowanie tras, monitoring baterii, przydział przesyłek i obsługa awarii w locie.
 
 34) System Ewidencji Sprzętu Wypożyczanego na Uczelni (np. sprzęt AV, laboratoryjny): Rezerwacje, stan techniczny, protokoły wydania/zwrotu i kary za zniszczenia.
-
+Paulina Miszka, Natalie Bochenska
 35) System Zarządzania Wydarzeniem Festiwalowym (Line-up i sceny): Harmonogram wielu scen równolegle, konflikty czasowe artystów, akredytacje i strefy dostępu.
 
 36) System Obsługi Zgłoszeń Awarii Miejskiej Infrastruktury (np. oświetlenie, wodociągi): Zgłoszenia mieszkańców, przydział ekip technicznych, priorytetyzacja według typu awarii.

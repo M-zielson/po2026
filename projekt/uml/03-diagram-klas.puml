@@ -1,6 +1,9 @@
 @startuml
-title Diagram klas - kontrakt vpp-domain i moduł vpp-data
+title Diagram klas - kontrakt vpp-domain, moduły vpp-data i vpp-app
 hide empty members
+' Układ od lewej do prawej: moduły układają się jeden pod drugim, więc diagram mieści się
+' w limicie 4096 px podglądu PlantUML (wcześniej był za szeroki i vpp-app wypadał poza obraz).
+left to right direction
 set separator none
 skinparam packageStyle rectangle
 skinparam classAttributeIconSize 0
@@ -229,6 +232,58 @@ EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
 PriceProvider <|.. SyntheticPriceProvider
 CsvExporter ..> SimulationResult
+
+package "vpp-app (pl.agh.po.vpp.app)" {
+    class Main <<final>> {
+        ~ {static} run(args : String[], out : PrintStream, err : PrintStream) : int
+        + {static} main(args : String[])
+    }
+    class CliOptions <<record>> {
+        date : LocalDate
+        seed : long
+        estateFile : Path
+        outputFile : Path
+        --
+        + {static} parse(args : String[], today : LocalDate) : CliOptions
+    }
+    interface DaySimulator {
+        simulate(estate : EstateConfig, t : Timeline, s : OperatorSettings,\n  w : WeatherProvider, p : PriceProvider, listeners : List<SimulationListener>) : SimulationResult
+    }
+    class StubDaySimulator
+    class ConsoleProgressListener {
+        - totalSteps : int
+        - doneSteps : int
+        + onStep(s : StepResult)
+        + onFinished(r : SimulationResult)
+    }
+    class DaySummary <<record>> {
+        productionKwh : double
+        consumptionKwh : double
+        importKwh : double
+        exportKwh : double
+        --
+        + {static} of(r : SimulationResult) : DaySummary
+        + format() : String
+    }
+}
+
+DaySimulator <|.. StubDaySimulator
+SimulationListener <|.. ConsoleProgressListener
+Main ..> CliOptions
+Main ..> DaySimulator
+Main ..> EstateLoader
+Main ..> SyntheticWeatherProvider : <<create>>
+Main ..> SyntheticPriceProvider : <<create>>
+Main ..> CsvExporter
+Main ..> ConsoleProgressListener : <<create>>
+Main ..> DaySummary
+DaySimulator ..> SimulationResult : <<create>>
+
+note bottom of StubDaySimulator
+  TYMCZASOWA atrapa silnika (M1).
+  Docelowo adapter na Simulation z vpp-engine
+  (wzorzec Adapter) – podmiana tylko w Main.
+end note
 
 note bottom of SyntheticPriceProvider
   Profil dobowy: tanio w nocy i w południe,

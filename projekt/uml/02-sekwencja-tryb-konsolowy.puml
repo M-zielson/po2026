@@ -1,0 +1,50 @@
+@startuml
+title Sekwencja - tryb konsolowy (M1): jedna doba na danych syntetycznych
+autonumber
+
+actor Użytkownik
+participant "Main\n(vpp-app)" as Main
+participant "CliOptions\n(vpp-app)" as Cli
+participant "EstateLoader\n(vpp-data)" as Loader
+participant "DaySimulator:\nStubDaySimulator\n(vpp-app)" as Sim
+participant "SyntheticWeatherProvider\n(vpp-data)" as Weather
+participant "SyntheticPriceProvider\n(vpp-data)" as Prices
+participant "ConsoleProgressListener\n(vpp-app)" as Progress
+participant "CsvExporter\n(vpp-data)" as Csv
+
+Użytkownik -> Main : java -jar vpp-app.jar ~--date RRRR-MM-DD ~--seed N
+Main -> Cli : parse(args, dzisiaj)
+alt błędne argumenty
+    Cli --> Main : IllegalArgumentException
+    Main --> Użytkownik : komunikat + pomoc, kod wyjścia 2
+end
+Cli --> Main : CliOptions
+
+Main -> Loader : load(estateFile)
+alt brak pliku / błędny plik osiedla
+    Loader --> Main : InvalidEstateException
+    Main --> Użytkownik : komunikat błędu, kod wyjścia 1
+end
+Loader --> Main : EstateConfig
+
+Main -> Main : Timeline.of(date, strefa osiedla)\nOperatorSettings z seedem
+
+Main -> Sim : simulate(estate, timeline, settings,\nweather, prices, [progress])
+Sim -> Weather : weatherFor(timeline, location)
+Weather --> Sim : List<Weather>
+Sim -> Prices : pricesFor(timeline)
+Prices --> Sim : List<Double>
+
+loop dla każdego kroku (zwykle 96)
+    Sim -> Sim : Conditions, moc paneli i zużycie budynków,\ngridKw = zużycie - produkcja, AssetFlow, StepResult
+    Sim -> Progress : onStep(stepResult)
+    Progress --> Użytkownik : pasek postępu: n/96 kroków
+end
+Sim -> Progress : onFinished(result)
+Sim --> Main : SimulationResult
+
+Main -> Csv : write(result, outputFile)
+Csv --> Main : plik CSV (nagłówek + wiersz na krok)
+Main -> Main : DaySummary.of(result)
+Main --> Użytkownik : podsumowanie kWh, ścieżka pliku, kod wyjścia 0
+@enduml

@@ -22,7 +22,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 | Kamień milowy | Cel | Stan |
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
-| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | 🔄 w toku: gotowe `estate.json`, `EstateLoader`, `SyntheticWeatherProvider`, `SyntheticPriceProvider` |
+| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | 🔄 w toku: gotowe `estate.json`, `EstateLoader`, `SyntheticWeatherProvider`, `SyntheticPriceProvider`, `CsvExporter` |
 | M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
@@ -164,6 +164,31 @@ którego komunikat wskazuje plik, element i problem (przy błędzie składni tak
 - wiatrak ma `ratedPowerKw > 0`, magazyn ma `capacityKwh > 0` i `ratedPowerKw > 0`,
 - jest **dokładnie jedno** przyłącze `GRID` i **najwyżej jeden** magazyn `BATTERY`,
 - nieznane pola są błędem – literówka typu `ratedPowerKW` nie zostanie po cichu zignorowana.
+
+## Format pliku CSV z wynikami
+
+Wyniki symulacji doby zapisuje klasa `CsvExporter` z modułu `vpp-data`: nagłówek i jeden wiersz
+na krok (zwykle 96 wierszy). Separator przecinek, kropka dziesiętna, kodowanie UTF-8, liczby z
+3 miejscami po przecinku.
+
+| Kolumna | Opis |
+|---|---|
+| `time` | początek kroku, czas lokalny z przesunięciem strefy, np. `2026-11-13T17:45+01:00` |
+| `production_kw` | produkcja paneli i wiatraka [kW] |
+| `consumption_kw` | zużycie budynków [kW] |
+| `battery_kw` | moc magazynu [kW]: + ładowanie, − rozładowanie |
+| `grid_kw` | wymiana z siecią [kW]: + import, − eksport |
+| `import_kw`, `export_kw` | import i eksport osobno, oba ≥ 0 [kW] |
+| `battery_soc_kwh` | stan naładowania magazynu na końcu kroku [kWh] |
+| `price_pln_per_kwh` | cena energii [PLN/kWh] |
+| `irradiance_wm2` | promieniowanie na nachylony panel [W/m²] |
+| `wind_ms` | prędkość wiatru na 80 m [m/s] |
+| `temperature_c` | temperatura powietrza [°C] |
+| `cloud_pct` | zachmurzenie [%] |
+
+Przesunięcie strefy w kolumnie `time` sprawia, że w dniu zmiany czasu powtórzona godzina 02:00–03:00
+jest jednoznaczna (`02:15+02:00` i `02:15+01:00`). W polskim Excelu plik otwiera się przez
+*Dane → Z tekstu/CSV* (separator: przecinek).
 
 ## Wymagania i budowanie
 

@@ -214,12 +214,21 @@ package "vpp-data (pl.agh.po.vpp.data)" {
             + pricesFor(t : Timeline) : List<Double>
         }
     }
+
+    package "export" {
+        class CsvExporter {
+            + {static} COLUMNS : List<String>
+            + write(r : SimulationResult, file : Path)
+            + write(r : SimulationResult, out : Writer)
+        }
+    }
 }
 
 EstateLoader ..> EstateConfig : <<create>>
 EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
 PriceProvider <|.. SyntheticPriceProvider
+CsvExporter ..> SimulationResult
 
 note bottom of SyntheticPriceProvider
   Profil dobowy: tanio w nocy i w południe,

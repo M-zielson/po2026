@@ -22,7 +22,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 | Kamień milowy | Cel | Stan |
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
-| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | 🔄 w toku: gotowe `estate.json`, `EstateLoader`, `SyntheticWeatherProvider`, `SyntheticPriceProvider`, `CsvExporter` |
+| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ gotowe (silnik na razie zastępczy – czeka na `vpp-engine`) |
 | M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
@@ -204,6 +204,35 @@ mvn -B verify
 
 Raport pokrycia testami (JaCoCo) dla każdego modułu: `<moduł>/target/site/jacoco/index.html`.
 
+Budowanie tworzy też jeden plik wykonywalny ze wszystkimi zależnościami: `vpp-app/target/vpp-app.jar`.
+
+## Uruchomienie trybu konsolowego
+
+Tryb konsolowy liczy jedną dobę osiedla na danych syntetycznych (pogoda i ceny z seeda),
+rysuje pasek postępu, wypisuje podsumowanie energii i zapisuje wyniki do CSV. Uruchamiamy z
+katalogu `projekt/`, bo stamtąd liczona jest domyślna ścieżka do `data/estate.json`:
+
+```bash
+cd projekt
+mvn -B -q package -DskipTests
+java -jar vpp-app/target/vpp-app.jar --date 2026-06-21 --seed 42
+```
+
+| Opcja | Znaczenie | Domyślnie |
+|---|---|---|
+| `--date RRRR-MM-DD` | dzień symulacji | dzisiaj |
+| `--seed LICZBA` | ziarno danych syntetycznych; ten sam seed i dzień dają ten sam wynik | `42` |
+| `--estate PLIK` | plik opisu osiedla | `data/estate.json` |
+| `--out PLIK` | plik wynikowy CSV | `wynik-<data>.csv` |
+| `--help` | pomoc | |
+
+Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV), `2` błędne argumenty.
+Logi (SLF4J + Logback) trafiają na standardowe wyjście błędów, wyniki na standardowe wyjście.
+
+> **Uwaga:** dopóki moduł `vpp-engine` nie jest gotowy, dobę liczy zastępczy `StubDaySimulator`:
+> panele liniowo z promieniowania, stałe zużycie na mieszkanie, bez wiatraka i magazynu.
+> Wyniki służą do sprawdzenia całego łańcucha, a nie do analizy osiedla.
+
 ## Diagramy UML
 
 Diagramy w PlantUML, w katalogu [`uml/`](uml/):
@@ -212,8 +241,9 @@ Diagramy w PlantUML, w katalogu [`uml/`](uml/):
 |---|---|
 | [`01-przypadki-uzycia.puml`](uml/01-przypadki-uzycia.puml) | co może zrobić operator osiedla; Open-Meteo jako system zewnętrzny |
 | [`02-sekwencja-symulacja-dnia.puml`](uml/02-sekwencja-symulacja-dnia.puml) | przebieg symulacji jednej doby krok po kroku |
+| [`02-sekwencja-tryb-konsolowy.puml`](uml/02-sekwencja-tryb-konsolowy.puml) | tryb konsolowy: od argumentów, przez symulację, do pliku CSV i podsumowania |
 | [`02-sekwencja-zmiana-strategii.puml`](uml/02-sekwencja-zmiana-strategii.puml) | zmiana strategii przez operatora *(w przygotowaniu)* |
-| [`03-diagram-klas.puml`](uml/03-diagram-klas.puml) | klasy kontraktu `vpp-domain` i modułu `vpp-data` |
+| [`03-diagram-klas.puml`](uml/03-diagram-klas.puml) | klasy kontraktu `vpp-domain` oraz modułów `vpp-data` i `vpp-app` |
 
 Podgląd: plugin *PlantUML Integration* w IntelliJ IDEA (diagram klas wymaga Graphviza).
 
@@ -223,6 +253,8 @@ Podgląd: plugin *PlantUML Integration* w IntelliJ IDEA (diagram klas wymaga Gra
 |---|---|
 | język, budowanie | Java 25, Maven (wielomodułowy) |
 | JSON | Jackson |
+| logi | SLF4J + Logback |
+| jeden plik wykonywalny | maven-shade-plugin (`vpp-app.jar`) |
 | testy | JUnit 5, AssertJ, jqwik (testy właściwościowe) |
 | pokrycie testami | JaCoCo |
 | CI | GitHub Actions (`mvn -B verify`) |

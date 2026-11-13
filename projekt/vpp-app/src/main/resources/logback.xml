@@ -1,0 +1,16 @@
+<configuration>
+    <!-- Logi idą na stderr, żeby nie mieszały się z wynikami programu na stdout -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss} %-5level %logger{0} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Bez komunikatów startowych samego Logbacka -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>

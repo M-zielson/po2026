@@ -195,10 +195,28 @@ package "vpp-data (pl.agh.po.vpp.data)" {
         load(file : Path) : EstateConfig
         parse(json : Reader, source : String) : EstateConfig
     }
+
+    package "weather" {
+        class SyntheticWeatherProvider {
+            {static} PANEL_TILT_DEG : double
+            - seed : long
+            + SyntheticWeatherProvider(seed : long)
+            + weatherFor(t : Timeline, l : Location) : List<Weather>
+            ~ {static} clearSkyTiltedIrradianceWm2(time : Instant, l : Location) : double
+            ~ {static} cloudFactor(cloudPct : double) : double
+        }
+    }
 }
 
 EstateLoader ..> EstateConfig : <<create>>
 EstateLoader ..> InvalidEstateException : <<throws>>
+WeatherProvider <|.. SyntheticWeatherProvider
+
+note bottom of SyntheticWeatherProvider
+  Pogoda bez internetu, powtarzalna:
+  ten sam seed + ten sam dzień = ta sama pogoda.
+  W M2 obok: OpenMeteoWeatherProvider.
+end note
 
 ' --- kompozycja rekordów ---
 EstateConfig *-- "1" Location

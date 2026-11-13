@@ -22,7 +22,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 | Kamień milowy | Cel | Stan |
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
-| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | 🔄 w toku: gotowe `estate.json` i `EstateLoader` |
+| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | 🔄 w toku: gotowe `estate.json`, `EstateLoader`, `SyntheticWeatherProvider` |
 | M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |

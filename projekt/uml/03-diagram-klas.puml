@@ -206,11 +206,26 @@ package "vpp-data (pl.agh.po.vpp.data)" {
             ~ {static} cloudFactor(cloudPct : double) : double
         }
     }
+
+    package "price" {
+        class SyntheticPriceProvider {
+            - seed : long
+            + SyntheticPriceProvider(seed : long)
+            + pricesFor(t : Timeline) : List<Double>
+        }
+    }
 }
 
 EstateLoader ..> EstateConfig : <<create>>
 EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
+PriceProvider <|.. SyntheticPriceProvider
+
+note bottom of SyntheticPriceProvider
+  Profil dobowy: tanio w nocy i w południe,
+  szczyt rano i najdrożej wieczorem, w weekend taniej.
+  W M3 obok: CsvPriceProvider (ceny TGE).
+end note
 
 note bottom of SyntheticWeatherProvider
   Pogoda bez internetu, powtarzalna:

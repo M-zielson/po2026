@@ -192,6 +192,40 @@ package "vpp-domain (pl.agh.po.vpp.domain)" {
         class WeatherUnavailableException
     }
 }
+package "vpp-engine (pl.agh.po.vpp.engine)" {
+    package "asset" {
+        enum AssetState {
+            RUNNING
+            FAILED
+            DISABLED
+        }
+        abstract class AbstractGenerator {
+            - id : String
+            - name : String
+            - type : AssetType
+            - ratedPowerKw : double
+            - state : AssetState
+            --
+            + powerKw(c : Conditions) : double
+            + produceKw(c : Conditions) : double
+            # {abstract} rawPowerKw(c : Conditions) : double
+        }
+        class SolarPanel {
+            + {static} DEFAULT_EFFICIENCY : double
+            + {static} DEFAULT_TEMP_COEFFICIENT_PER_C : double
+            - areaM2 : double
+            - efficiency : double
+            - tempCoefficientPerC : double
+            --
+            # rawPowerKw(c : Conditions) : double
+        }
+    }
+}
+
+PowerSource <|.. AbstractGenerator
+AbstractGenerator <|-- SolarPanel
+AbstractGenerator --> AssetState
+
 
 package "vpp-data (pl.agh.po.vpp.data)" {
     class EstateLoader {

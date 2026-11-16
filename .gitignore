@@ -49,6 +49,8 @@ Thumbs.db
 .DS_Store
 # Logi działającej aplikacji (żeby nie pchać do repozytorium historii uruchomień)
 *.log
+# Wyniki próbnych uruchomień trybu konsolowego (java -jar vpp-app.jar bez --out)
+projekt/wynik-*.csv
 
 # Zabezpieczenie przed przypadkowym commitem wyeksportowanych diagramów.
 # Prowadzący wymaga TYLKO plików *.puml[cite: 1, 19]

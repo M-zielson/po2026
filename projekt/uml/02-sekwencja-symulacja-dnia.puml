@@ -1,59 +1,35 @@
 @startuml
-title Sekwencja - symulacja jednej doby
+title Symulacja doby M1 przez interfejsy domain
 autonumber
-
-actor Operator
-participant "WebServer / Main\n(vpp-app)" as App
-participant "EstateLoader\n(vpp-data)" as Loader
-participant "EstateBuilder\n(vpp-engine)" as Builder
-participant "Simulation\n(vpp-engine)" as Sim
-participant "WeatherProvider\n(vpp-data)" as Weather
-participant "PriceProvider\n(vpp-data)" as Prices
-participant "VirtualPowerPlant\n(vpp-engine)" as VPP
-participant "DispatchStrategy\n(vpp-engine)" as Strategy
-participant "Storage / Battery\n(vpp-engine)" as Battery
-participant "EnergyBalanceValidator\n(vpp-engine)" as Validator
-participant "SimulationListener\n(dziennik, SSE)" as Listener
-
-Operator -> App : wybiera dzień, strategię, tryb magazynu, awarie
-App -> Loader : load("estate.json")
-Loader --> App : EstateConfig
-App -> App : Timeline.of(dzień, strefa)\nOperatorSettings z żądania
-
-App -> Builder : build(estateConfig, operatorSettings)
-Builder --> App : VirtualPowerPlant, Simulation
-
-App -> Sim : run(timeline)
-
+participant Klient
+participant Simulation as Sim
+participant WeatherProvider as Weather
+participant PriceProvider as Prices
+participant VirtualPowerPlant as VPP
+participant SimulationListener as Listener
+Klient -> Sim : run(timeline)
+Sim -> Sim : sprawdź strefę i czas kroku
 Sim -> Weather : weatherFor(timeline, location)
-Weather --> Sim : List<Weather> (jeden na krok)
+Weather --> Sim : List<Weather>
 Sim -> Prices : pricesFor(timeline)
-Prices --> Sim : List<Double> [PLN/kWh]
-
-loop dla każdego kroku i z timeline.steps() (zwykle 96 po 15 min)
-    Sim -> Sim : Conditions(t, weather[i], price[i])
-    Sim -> VPP : step(conditions, stepHours)
-    VPP -> VPP : produkcja (PowerSource.powerKw)\nzużycie (Load.demandKw)\nnetKw = produkcja - zużycie
-
-    VPP -> Strategy : decide(netKw, battery.state(), conditions)
-    Strategy --> VPP : Dispatch(batteryKw, gridKw)
-
-    VPP -> Battery : apply(dispatch.batteryKw, stepHours)
-    Battery --> VPP : faktyczne batteryKw (przycięte do limitów mocy i SoC)
-
-    VPP -> VPP : gridKw = batteryKw - netKw\nlista AssetFlow, StepResult
-
-    VPP -> Validator : validate(stepResult)
-    Validator --> VPP : OK (błąd bilansu < 1e-6 kWh)
-
-    VPP --> Sim : StepResult
-    Sim -> Listener : onStep(stepResult)
-    opt magazyn właśnie pełny / pusty
-        Sim -> Listener : onBatteryFull(t) / onBatteryEmpty(t)
-    end
+Prices --> Sim : List<Double>
+Sim -> Sim : walidacja długości, chwil i skończonych wartości
+note right of Sim
+Błąd danych przerywa przebieg przed onStep.
+Silnik nie zależy od vpp-data ani vpp-app.
+end note
+loop timeline.steps(): zwykle 96, DST 92/100 kroków
+    Sim -> Sim : Conditions(time, weather[i], prices[i])
+    Sim -> VPP : step(conditions, timeline.stepHours())
+    VPP --> Sim : zwalidowany StepResult
+    Sim -> Listener : onStep(step)
 end
-
-Sim -> Listener : onFinished(simulationResult)
-Sim --> App : SimulationResult
-App --> Operator : JSON dla panelu i sceny 3D / plik CSV
+Sim -> Sim : SimulationResult(timeline, settings, steps)
+Sim -> Listener : onFinished(result)
+Sim --> Klient : SimulationResult
+note right of Listener
+onFinished raz po udanej dobie.
+Wyjątek słuchacza przerywa przebieg.
+Zdarzenia magazynu dopiero w M2.
+end note
 @enduml

@@ -12,8 +12,7 @@ import java.util.List;
 
 /**
  * Policzenie jednej doby osiedla – punkt, w którym aplikacja podłącza silnik.
- * Teraz: {@link StubDaySimulator} (atrapa). Docelowo: adapter na {@code Simulation} z vpp-engine,
- * podmieniany w jednym miejscu w {@link Main}, bez zmian w reszcie aplikacji.
+ * Implementacja {@link EngineDaySimulator} łączy aplikację z silnikiem vpp-engine.
  */
 public interface DaySimulator {
 

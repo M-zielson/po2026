@@ -67,10 +67,9 @@ public final class Main {
 
             out.printf("%s (%d elementów), %s, seed %d%n",
                     estate.name(), estate.assets().size(), options.date(), options.seed());
-            out.println("Uwaga: silnik zastępczy (stub) – wiatrak i magazyn energii nie pracują.");
+            out.println("Silnik M1: profile budynków i PV; wiatrak i magazyn energii nieaktywne do M2.");
 
-            // Jedyne miejsce do podmiany, gdy vpp-engine dostarczy prawdziwą symulację.
-            DaySimulator simulator = new StubDaySimulator();
+            DaySimulator simulator = new EngineDaySimulator();
             List<SimulationListener> listeners = List.of(new ConsoleProgressListener(out, timeline.size()));
             SimulationResult result = simulator.simulate(estate, timeline, settings,
                     new SyntheticWeatherProvider(options.seed()),

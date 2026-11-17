@@ -1,12 +1,18 @@
 @startuml
-title Diagram klas - kontrakt vpp-domain, moduły vpp-data i vpp-app
+title Diagram klas - kontrakt vpp-domain i moduły vpp-engine, vpp-data, vpp-app
 hide empty members
-' Układ od lewej do prawej: moduły układają się jeden pod drugim, więc diagram mieści się
-' w limicie 4096 px podglądu PlantUML (wcześniej był za szeroki i vpp-app wypadał poza obraz).
+' Rozmiar: podgląd PlantUML (także w IntelliJ) ucina obraz szerszy niż 4096 px.
+' - left to right direction: moduły układają się jeden pod drugim zamiast obok siebie,
+' - mniejsze odstępy i czcionka: zwarty układ,
+' - scale max: zabezpieczenie, gdy diagram urośnie (zmniejsza obraz zamiast go ucinać).
 left to right direction
+scale max 4000 width
 set separator none
 skinparam packageStyle rectangle
 skinparam classAttributeIconSize 0
+skinparam defaultFontSize 12
+skinparam nodesep 25
+skinparam ranksep 45
 
 package "vpp-domain (pl.agh.po.vpp.domain)" {
 
@@ -329,6 +335,7 @@ CsvExporter ..> SimulationResult
 package "vpp-app (pl.agh.po.vpp.app)" {
     class Main <<final>> {
         ~ {static} run(args : String[], out : PrintStream, err : PrintStream) : int
+        ~ {static} run(args, out, err, sim : DaySimulator) : int
         + {static} main(args : String[])
     }
     class CliOptions <<record>> {
@@ -426,13 +433,13 @@ Storage ..> BatteryState
 RuntimeException <|-- InvalidEstateException
 RuntimeException <|-- WeatherUnavailableException
 
-note right of StepResult
+note bottom of StepResult
   Znaki: batteryKw + ładowanie / − rozładowanie,
   gridKw + import / − eksport.
   Bilans: productionKw + gridKw = consumptionKw + batteryKw
 end note
 
-note right of AssetFlow
+note bottom of AssetFlow
   Obie moce ≥ 0, z punktu widzenia sieci osiedla.
   Bateria: production = rozładowanie, consumption = ładowanie.
   Sieć: production = import, consumption = eksport.

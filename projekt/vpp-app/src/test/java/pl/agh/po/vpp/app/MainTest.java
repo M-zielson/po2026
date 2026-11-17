@@ -28,6 +28,20 @@ class MainTest {
                 new PrintStream(errBuffer, true, StandardCharsets.UTF_8));
     }
 
+    private int runWith(DaySimulator simulator, String... args) {
+        return Main.run(args,
+                new PrintStream(outBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(errBuffer, true, StandardCharsets.UTF_8),
+                simulator);
+    }
+
+    /** Silnik, który zawsze przerywa dobę podanym wyjątkiem – jak prawdziwy przy niezgodnym bilansie. */
+    private static DaySimulator failingWith(RuntimeException error) {
+        return (estate, timeline, settings, weather, prices, listeners) -> {
+            throw error;
+        };
+    }
+
     private String out() {
         return outBuffer.toString(StandardCharsets.UTF_8);
     }
@@ -93,5 +107,27 @@ class MainTest {
     void helpWypisujePomoc() {
         assertThat(run("--help")).isEqualTo(Main.EXIT_OK);
         assertThat(out()).contains("Użycie:", "--date", "--seed", "--estate", "--out");
+    }
+
+    @Test
+    void bladSilnikaToKod3ZCzytelnymKomunikatem(@TempDir Path dir) {
+        Path csv = dir.resolve("w.csv");
+
+        int exitCode = runWith(failingWith(new IllegalStateException("Niezgodny bilans lub przepływy zasobów")),
+                "--estate", ESTATE, "--out", csv.toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_SIMULATION_ERROR);
+        assertThat(err()).contains("Błąd symulacji: Niezgodny bilans");
+        assertThat(err()).doesNotContain("at pl.agh"); // ślad stosu idzie do logu, nie do komunikatu
+        assertThat(csv).doesNotExist();
+    }
+
+    @Test
+    void nieobslugiwaneUstawieniaSilnikaToTezBladSymulacji(@TempDir Path dir) {
+        int exitCode = runWith(failingWith(new IllegalArgumentException("M1 nie obsługuje jeszcze strategii")),
+                "--estate", ESTATE, "--out", dir.resolve("w.csv").toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_SIMULATION_ERROR);
+        assertThat(err()).contains("Błąd symulacji: M1 nie obsługuje");
     }
 }

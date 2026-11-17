@@ -226,7 +226,8 @@ java -jar vpp-app/target/vpp-app.jar --date 2026-06-21 --seed 42
 | `--out PLIK` | plik wynikowy CSV | `wynik-<data>.csv` |
 | `--help` | pomoc | |
 
-Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV), `2` błędne argumenty.
+Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV), `2` błędne argumenty,
+`3` błąd symulacji w silniku (np. niezgodny bilans) – wtedy pełny ślad błędu trafia do logu.
 Logi (SLF4J + Logback) trafiają na standardowe wyjście błędów, wyniki na standardowe wyjście.
 
 `EngineDaySimulator` składa osiedle przez `EstateBuilder` i uruchamia `Simulation`.

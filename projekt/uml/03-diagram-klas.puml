@@ -193,6 +193,9 @@ package "vpp-domain (pl.agh.po.vpp.domain)" {
     }
 }
 package "vpp-engine (pl.agh.po.vpp.engine)" {
+    class EstateBuilder {
+        + build(estate : EstateConfig) : VirtualPowerPlant
+    }
     class Simulation {
         - location : Location
         - settings : OperatorSettings
@@ -262,6 +265,8 @@ package "vpp-engine (pl.agh.po.vpp.engine)" {
 PowerSource <|.. AbstractGenerator
 AbstractGenerator <|-- SolarPanel
 AbstractGenerator --> AssetState
+EstateBuilder ..> EstateConfig
+EstateBuilder ..> VirtualPowerPlant : <<create>>
 Simulation --> VirtualPowerPlant
 Simulation --> WeatherProvider
 Simulation --> PriceProvider
@@ -337,7 +342,7 @@ package "vpp-app (pl.agh.po.vpp.app)" {
     interface DaySimulator {
         simulate(estate : EstateConfig, t : Timeline, s : OperatorSettings,\n  w : WeatherProvider, p : PriceProvider, listeners : List<SimulationListener>) : SimulationResult
     }
-    class StubDaySimulator
+    class EngineDaySimulator
     class ConsoleProgressListener {
         - totalSteps : int
         - doneSteps : int
@@ -355,7 +360,9 @@ package "vpp-app (pl.agh.po.vpp.app)" {
     }
 }
 
-DaySimulator <|.. StubDaySimulator
+DaySimulator <|.. EngineDaySimulator
+EngineDaySimulator ..> EstateBuilder
+EngineDaySimulator ..> Simulation
 SimulationListener <|.. ConsoleProgressListener
 Main ..> CliOptions
 Main ..> DaySimulator
@@ -367,10 +374,9 @@ Main ..> ConsoleProgressListener : <<create>>
 Main ..> DaySummary
 DaySimulator ..> SimulationResult : <<create>>
 
-note bottom of StubDaySimulator
-  TYMCZASOWA atrapa silnika (M1).
-  Docelowo adapter na Simulation z vpp-engine
-  (wzorzec Adapter) – podmiana tylko w Main.
+note bottom of EngineDaySimulator
+  Adapter silnika M1: budynki, PV i GRID.
+  Wiatrak i bateria nieaktywne do M2.
 end note
 
 note bottom of SyntheticPriceProvider

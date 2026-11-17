@@ -48,6 +48,11 @@ loop dla każdego kroku (zwykle 96)
     Sim -> Progress : onStep(stepResult)
     Progress --> Użytkownik : pasek postępu: n/96 kroków
 end
+alt błąd silnika (niezgodny bilans, złe dane providera)
+    Sim --> Adapter : IllegalStateException
+    Adapter --> Main : IllegalStateException
+    Main --> Użytkownik : "Błąd symulacji: ...", ślad w logu, kod wyjścia 3
+end
 Sim -> Progress : onFinished(result)
 Sim --> Adapter : SimulationResult
 Adapter --> Main : SimulationResult

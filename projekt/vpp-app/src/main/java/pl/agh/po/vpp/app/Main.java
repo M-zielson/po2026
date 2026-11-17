@@ -28,6 +28,7 @@ public final class Main {
     static final int EXIT_OK = 0;
     static final int EXIT_DATA_ERROR = 1;
     static final int EXIT_USAGE_ERROR = 2;
+    static final int EXIT_SIMULATION_ERROR = 3;
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
@@ -41,9 +42,15 @@ public final class Main {
     /**
      * Cały program bez {@code System.exit}, żeby dało się go przetestować.
      *
-     * @return kod wyjścia: 0 sukces, 1 błąd danych (osiedle, zapis pliku), 2 błędne argumenty
+     * @return kod wyjścia: 0 sukces, 1 błąd danych (osiedle, zapis pliku), 2 błędne argumenty,
+     *         3 błąd symulacji w silniku
      */
     static int run(String[] args, PrintStream out, PrintStream err) {
+        return run(args, out, err, new EngineDaySimulator());
+    }
+
+    /** Jak {@link #run(String[], PrintStream, PrintStream)}, z podanym silnikiem (testy podstawiają własny). */
+    static int run(String[] args, PrintStream out, PrintStream err, DaySimulator simulator) {
         if (Arrays.asList(args).contains("--help")) {
             out.println(CliOptions.USAGE);
             return EXIT_OK;
@@ -69,7 +76,6 @@ public final class Main {
                     estate.name(), estate.assets().size(), options.date(), options.seed());
             out.println("Silnik M1: profile budynków i PV; wiatrak i magazyn energii nieaktywne do M2.");
 
-            DaySimulator simulator = new EngineDaySimulator();
             List<SimulationListener> listeners = List.of(new ConsoleProgressListener(out, timeline.size()));
             SimulationResult result = simulator.simulate(estate, timeline, settings,
                     new SyntheticWeatherProvider(options.seed()),
@@ -86,6 +92,13 @@ public final class Main {
             log.debug("Szczegóły błędu", e);
             err.println("Błąd: " + e.getMessage());
             return EXIT_DATA_ERROR;
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // Silnik przerwał dobę (np. niezgodny bilans, niepoprawne dane providera, nieobsługiwane
+            // ustawienia). To błąd programu, nie danych użytkownika, więc pełny ślad idzie do logu.
+            out.println(); // zamyka linię paska postępu, jeśli symulacja przerwała się w połowie
+            log.error("Symulacja przerwana", e);
+            err.println("Błąd symulacji: " + e.getMessage());
+            return EXIT_SIMULATION_ERROR;
         }
     }
 }

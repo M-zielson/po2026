@@ -194,6 +194,29 @@ package "vpp-domain (pl.agh.po.vpp.domain)" {
 }
 package "vpp-engine (pl.agh.po.vpp.engine)" {
     package "asset" {
+        abstract class AbstractLoad {
+            - zone : ZoneId
+            - state : AssetState
+            + demandKw(c : Conditions) : double
+            + roofProductionKw(c : Conditions) : double
+            + setState(state : AssetState)
+            # {abstract} profileDemandKw(time : LocalDateTime, c : Conditions) : double
+        }
+        class ApartmentBlock
+        class House
+        class School {
+            - baseKw : double
+            - lessonsKw : double
+        }
+        class ResidentialProfile <<record>> {
+            baseKw : double
+            morningKw : double
+            eveningKw : double
+            heatLossKwPerC : double
+            balanceTemperatureC : double
+            heatingCop : double
+            + demandKw(time : LocalDateTime, temperatureC : double) : double
+        }
         enum AssetState {
             RUNNING
             FAILED
@@ -225,6 +248,15 @@ package "vpp-engine (pl.agh.po.vpp.engine)" {
 PowerSource <|.. AbstractGenerator
 AbstractGenerator <|-- SolarPanel
 AbstractGenerator --> AssetState
+Load <|.. AbstractLoad
+AbstractLoad <|-- ApartmentBlock
+AbstractLoad <|-- House
+AbstractLoad <|-- School
+AbstractLoad *-- "0..1" SolarPanel : dachowe PV
+AbstractLoad --> AssetState
+ApartmentBlock --> ResidentialProfile
+House --> ResidentialProfile
+
 
 
 package "vpp-data (pl.agh.po.vpp.data)" {

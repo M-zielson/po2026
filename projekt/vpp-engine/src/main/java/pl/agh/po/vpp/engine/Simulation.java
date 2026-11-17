@@ -53,8 +53,10 @@ public final class Simulation {
             var conditions = new Conditions(times.get(i), weather.get(i), prices.get(i));
             var step = plant.step(conditions, timeline.stepHours());
             steps.add(step);
+            listeners.forEach(listener -> listener.onStep(step));
         }
         var result = new SimulationResult(timeline, settings, steps);
+        listeners.forEach(listener -> listener.onFinished(result));
         return result;
     }
 }

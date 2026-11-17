@@ -193,6 +193,15 @@ package "vpp-domain (pl.agh.po.vpp.domain)" {
     }
 }
 package "vpp-engine (pl.agh.po.vpp.engine)" {
+    class VirtualPowerPlant {
+        - buildings : List<AbstractLoad>
+        - gridId : String
+        - inactiveFlows : List<AssetFlow>
+        + step(c : Conditions, stepHours : double) : StepResult
+    }
+    class EnergyBalanceValidator {
+        + {static} validate(step : StepResult)
+    }
     package "asset" {
         abstract class AbstractLoad {
             - zone : ZoneId
@@ -248,6 +257,9 @@ package "vpp-engine (pl.agh.po.vpp.engine)" {
 PowerSource <|.. AbstractGenerator
 AbstractGenerator <|-- SolarPanel
 AbstractGenerator --> AssetState
+VirtualPowerPlant *-- "0..*" AbstractLoad
+VirtualPowerPlant ..> EnergyBalanceValidator
+VirtualPowerPlant ..> StepResult : <<create>>
 Load <|.. AbstractLoad
 AbstractLoad <|-- ApartmentBlock
 AbstractLoad <|-- House

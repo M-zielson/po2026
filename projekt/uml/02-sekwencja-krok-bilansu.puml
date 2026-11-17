@@ -1,0 +1,26 @@
+@startuml
+title Krok bilansu M1 bez baterii
+participant Klient
+participant VirtualPowerPlant as VPP
+participant AbstractLoad as Load
+participant SolarPanel as PV
+participant EnergyBalanceValidator as Validator
+Klient -> VPP : step(conditions, stepHours)
+loop każdy budynek
+    VPP -> Load : demandKw(conditions)
+    Load --> VPP : pobór
+    VPP -> Load : roofProductionKw(conditions)
+    opt PV obecne i budynek pracuje
+        Load -> PV : powerKw(conditions)
+        PV --> Load : produkcja
+    end
+    Load --> VPP : produkcja
+    VPP -> VPP : jeden AssetFlow pod id budynku
+end
+VPP -> VPP : wiatrak i bateria: przepływy zero
+VPP -> VPP : gridKw = consumptionKw - productionKw
+VPP -> VPP : GRID: production = import, consumption = eksport
+VPP -> Validator : validate(stepResult)
+Validator --> VPP : zgodne agregaty i błąd energii < 1e-6 kWh
+VPP --> Klient : StepResult
+@enduml

@@ -17,7 +17,7 @@ Kategoria A: Symulacje procesów i systemów (wysoki potencjał na polimorfizm)
 5) Symulator Śluzy Wodnej na Kanale: Sterowanie poziomem wody, kolejką statków oczekujących i sekwencją otwierania wrót.
 Jan Ryszka, Gracjan Stawarczyk
 6) System Zarządzania Chłodnią Magazynową: Strefy o różnej temperaturze, monitoring towarów wrażliwych (żywność, leki) i alarmy przy przekroczeniu progów.
-
+Maksymilian Kowalski, Piotr Kowalczyk
 7) Symulator Kopalni Odkrywkowej: Zarządzanie flotą koparek i wywrotek, harmonogram wydobycia i transportu urobku między punktami.
 
 8) System Sterowania Szklarnią: Automatyczne nawadnianie, oświetlenie i wentylacja w zależności od odczytów czujników i rodzaju uprawy. Kacper Mrzygłód, Piotr Gontarz
@@ -59,7 +59,7 @@ Kategoria C: Gry i rozrywka (najciekawsze na diagramy sekwencji)
 24) System Rozgrywek Turniejowych z Rankingiem ELO: Rejestracja meczów, aktualizacja rankingu graczy po każdym wyniku i generowanie drabinki na kolejną rundę.
 
 25) Gra Strategiczna 4X (uproszczona, tekstowa): Eksploracja mapy heksagonalnej, rozbudowa osad, drzewko technologii i podstawowe starcia jednostek.
-
+Kamil Pałka, Aleksander Nowakowski
 26) Silnik Przygodówki Tekstowej (Interactive Fiction Engine): Parser komend, stan świata, ekwipunek gracza i wczytywanie scenariuszy z plików konfiguracyjnych.
 
 27) Symulator Zarządzania Drużyną Sportową (Manager): Skład zawodników o statystykach, budżet transferowy, plan meczów i symulacja wyników na podstawie atrybutów.
@@ -103,3 +103,8 @@ System Zarządzania Operacjami Płytowymi Lotniska: Miłosz Klasa, Paweł Kulik
 Gra Symulacyjna Dyspozytorni Komunikacji Miejskiej (DisKrak) : Symulator ruchu w czasie rzeczywistym, zarządzanie flotą i kadrą kierowców z tachografem, kreator przystanków i linii tymczasowych, modularny system wypadków, grywalizacja nastrojów dzielnic, asystent z kartami decyzyjnymi oraz analityka słupkowa - Karol Machnik, Hubert Śliwa
 
 Wektorowa baza danych (Chonker) : baza danych do przechowywania danych różnego rodzaju (tekstu, obrazów, dźwięków itd.) w postaci osadzeń (embedding) w celu łatwiejszego i szybszego wyszukiwania treści, modularność modeli do generowania osadzeń, zarządzanie użytkownikami i uprawnieniami - Piotr Trybała, indywidualnie
+
+System Wykrywania i Analizy Zagrożeń Bezpieczeństwa (Mini SIEM): Analiza logów systemowych i sieciowych, wykrywanie podejrzanych aktywności na podstawie konfigurowalnych reguł (np. wielokrotne nieudane logowania), generowanie alertów oraz prezentacja historii zdarzeń i statystyk bezpieczeństwa. Konrad Rzemieniec, Krzysztof Mrowiec
+Komunikator tekstowy klient-serwer z szyfrowaniem wiadomości z wykorzystaniem RSA i AES, przesyłanie plików, system kont i znajomych - Bartosz Bielawski, Mateusz Stokowiec
+
+50) Rekreacja gry Bomberman (NES 1985) - Kamil Deptalski, indywidualnie

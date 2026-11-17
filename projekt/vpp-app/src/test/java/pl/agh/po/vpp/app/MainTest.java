@@ -46,6 +46,9 @@ class MainTest {
         List<String> lines = Files.readAllLines(csv, StandardCharsets.UTF_8);
         assertThat(lines).hasSize(1 + 96);
         assertThat(out()).contains("Osiedle Słoneczne", "96/96 kroków", "Import:", "Zapisano: " + csv);
+        assertThat(out()).contains("Silnik M1").doesNotContain("stub", "zastępczy");
+        assertThat(lines.subList(1, lines.size()).stream().map(line -> line.split(",")[2]).distinct().count())
+                .isGreaterThan(1);
         assertThat(err()).doesNotContain("Błąd");
     }
 

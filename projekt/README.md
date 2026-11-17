@@ -22,7 +22,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 | Kamień milowy | Cel | Stan |
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
-| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ gotowe (silnik na razie zastępczy – czeka na `vpp-engine`) |
+| M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ zaimplementowane: PV, profile i bilans; bateria i wiatrak w M2 |
 | M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
@@ -229,9 +229,53 @@ java -jar vpp-app/target/vpp-app.jar --date 2026-06-21 --seed 42
 Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV), `2` błędne argumenty.
 Logi (SLF4J + Logback) trafiają na standardowe wyjście błędów, wyniki na standardowe wyjście.
 
-> **Uwaga:** dopóki moduł `vpp-engine` nie jest gotowy, dobę liczy zastępczy `StubDaySimulator`:
-> panele liniowo z promieniowania, stałe zużycie na mieszkanie, bez wiatraka i magazynu.
-> Wyniki służą do sprawdzenia całego łańcucha, a nie do analizy osiedla.
+`EngineDaySimulator` składa osiedle przez `EstateBuilder` i uruchamia `Simulation`.
+M1 liczy profile budynków oraz PV z korektą temperatury i ograniczeniem mocy.
+Wiatrak i bateria mają jawnie zerowe przepływy; `batteryKw` i `batterySocKwh` wynoszą 0.
+Sieć pokrywa różnicę poboru i produkcji, bez ograniczenia mocy przyłącza.
+Strategie inne niż domyślna, ręczne tryby baterii, awarie i limit eksportu są odrzucane
+jako nieobsługiwane w M1. Pogoda i ceny nadal są syntetyczne; silnik używa wyłącznie
+interfejsów providerów, przygotowanych na przyszłe API pogodowe.
+
+### Model poboru M1
+
+`AbstractLoad` odpowiada za strefę czasową i stan; `ApartmentBlock`, `House` i `School`
+wyznaczają profil. Dachowy `SolarPanel` jest składnikiem budynku; produkcja i pobór
+mają jeden `AssetFlow` pod id budynku. `FAILED` i `DISABLED` wyłączają pobór i PV.
+
+Model mieszkalny na lokal:
+
+```
+P = baza + rano*g(t, szczyt, 1h) + wieczór*g(t, 19.5h, 2h)
+    + H*max(T_balance-T_out, 0)/COP
+g = exp(-0.5*(d/sigma)^2)
+```
+
+`d` jest najkrótszą odległością godzinową na dobie. Poranny szczyt: 7:30 w dni robocze,
+8:30 w weekend. Całość mnożymy przez `dwellings` (0 oznacza zerowy pobór mieszkalny).
+Składnik cieplny korzysta z bilansu strat ciepła; nie modeluje bezwładności ani chłodzenia.
+
+| Parametr na lokal | Blok | Dom |
+|---|---:|---:|
+| Baza [kW] | 0.15 | 0.20 |
+| Amplituda poranna [kW] | 0.35 | 0.45 |
+| Amplituda wieczorna [kW] | 0.65 | 0.85 |
+| H [kW/°C] | 0.025 | 0.08 |
+| Temperatura bilansowa [°C] | 16 | 16 |
+| COP | 3 | 3 |
+
+To założenia demonstracyjne, nie parametry pomiarowe. Własny `ResidentialProfile`
+można przekazać konstruktorem bez zmiany kontraktu konfiguracji. Szkoła pobiera 10 kW
+w dni robocze [8:00, 15:00), poza tym 1 kW; obie moce można przekazać konstruktorem.
+Szkoła jest całym obiektem, nie mnożymy jej przez `dwellings`; bez ferii i ogrzewania.
+
+`Simulation` sprawdza długości danych, chwile pogody i skończoność wartości przed
+pierwszym krokiem. Obsługuje DST (92/100 kroków), `onStep` po każdym kroku i jedno
+`onFinished` po powodzeniu. Wyjątek słuchacza przerywa przebieg.
+`EnergyBalanceValidator` sprawdza agregaty i przepływy, oddzielając GRID od OZE;
+wymaga `abs(balanceErrorKw * stepHours) < 1e-6 kWh`.
+
+Podział przeglądów: [M1 — podział prac](M1-implementation.md).
 
 ## Diagramy UML
 

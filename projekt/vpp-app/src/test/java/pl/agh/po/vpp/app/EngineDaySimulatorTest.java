@@ -23,7 +23,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-class StubDaySimulatorTest {
+class EngineDaySimulatorTest {
 
     private static final ZoneId WARSAW = ZoneId.of("Europe/Warsaw");
     /** Piątek: szkoła ma lekcje. */
@@ -40,7 +40,7 @@ class StubDaySimulatorTest {
                     new AssetConfig("grid", AssetType.GRID, "Sieć", 0, 250, 0, 0, null)));
 
     private static SimulationResult simulate(LocalDate date, List<SimulationListener> listeners) {
-        return new StubDaySimulator().simulate(ESTATE, Timeline.of(date, WARSAW), OperatorSettings.defaults(),
+        return new EngineDaySimulator().simulate(ESTATE, Timeline.of(date, WARSAW), OperatorSettings.defaults(),
                 new SyntheticWeatherProvider(42), new SyntheticPriceProvider(42), listeners);
     }
 
@@ -77,18 +77,17 @@ class StubDaySimulatorTest {
         StepResult midnight = simulate(FRIDAY, List.of()).steps().getFirst();
 
         assertThat(midnight.productionKw()).isZero();
-        assertThat(midnight.consumptionKw()).isEqualTo(40 * StubDaySimulator.LOAD_PER_DWELLING_KW);
+        assertThat(midnight.consumptionKw()).isPositive();
         assertThat(midnight.importKw()).isEqualTo(midnight.consumptionKw());
     }
 
     @Test
-    void szkolaZuzywaPradTylkoWGodzinachLekcji() {
+    void szkolaMaBazePozaLekcjami() {
         SimulationResult result = simulate(FRIDAY, List.of());
-        double blockLoad = 40 * StubDaySimulator.LOAD_PER_DWELLING_KW;
 
         // 10:00 to krok nr 40 (10 godzin × 4 kroki), 20:00 to krok nr 80
-        assertThat(result.steps().get(40).consumptionKw()).isEqualTo(blockLoad + StubDaySimulator.SCHOOL_LOAD_KW);
-        assertThat(result.steps().get(80).consumptionKw()).isEqualTo(blockLoad);
+        assertThat(result.steps().get(40).flowOf("school").orElseThrow().consumptionKw()).isEqualTo(10);
+        assertThat(result.steps().get(80).flowOf("school").orElseThrow().consumptionKw()).isEqualTo(1);
     }
 
     @Test

@@ -193,6 +193,11 @@ package "vpp-domain (pl.agh.po.vpp.domain)" {
     }
 }
 package "vpp-engine (pl.agh.po.vpp.engine)" {
+    class Simulation {
+        - location : Location
+        - settings : OperatorSettings
+        + run(timeline : Timeline) : SimulationResult
+    }
     class VirtualPowerPlant {
         - buildings : List<AbstractLoad>
         - gridId : String
@@ -257,6 +262,11 @@ package "vpp-engine (pl.agh.po.vpp.engine)" {
 PowerSource <|.. AbstractGenerator
 AbstractGenerator <|-- SolarPanel
 AbstractGenerator --> AssetState
+Simulation --> VirtualPowerPlant
+Simulation --> WeatherProvider
+Simulation --> PriceProvider
+Simulation --> "0..*" SimulationListener
+Simulation ..> SimulationResult : <<create>>
 VirtualPowerPlant *-- "0..*" AbstractLoad
 VirtualPowerPlant ..> EnergyBalanceValidator
 VirtualPowerPlant ..> StepResult : <<create>>

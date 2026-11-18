@@ -307,6 +307,29 @@ package "vpp-data (pl.agh.po.vpp.data)" {
             ~ {static} clearSkyTiltedIrradianceWm2(time : Instant, l : Location) : double
             ~ {static} cloudFactor(cloudPct : double) : double
         }
+        class OpenMeteoWeatherProvider {
+            - fetcher : HttpFetcher
+            - clock : Clock
+            + OpenMeteoWeatherProvider(fetcher : HttpFetcher, clock : Clock)
+            + weatherFor(t : Timeline, l : Location) : List<Weather>
+            ~ sourceFor(day : LocalDate, first : LocalDate, last : LocalDate) : Source
+        }
+        enum "OpenMeteoWeatherProvider.Source" as OpenMeteoSource {
+            FORECAST
+            ARCHIVE
+        }
+        interface HttpFetcher <<functional>> {
+            get(uri : URI) : HttpResult
+        }
+        class "HttpFetcher.HttpResult" as HttpResult <<record>> {
+            statusCode : int
+            body : String
+        }
+        class JdkHttpFetcher {
+            - client : HttpClient
+            - timeout : Duration
+            + get(uri : URI) : HttpResult
+        }
     }
 
     package "price" {
@@ -352,6 +375,12 @@ package "vpp-data (pl.agh.po.vpp.data)" {
 EstateLoader ..> EstateConfig : <<create>>
 EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
+WeatherProvider <|.. OpenMeteoWeatherProvider
+OpenMeteoWeatherProvider --> HttpFetcher
+OpenMeteoWeatherProvider ..> OpenMeteoSource
+OpenMeteoWeatherProvider ..> WeatherUnavailableException : <<throws>>
+HttpFetcher <|.. JdkHttpFetcher
+HttpFetcher ..> HttpResult
 PriceProvider <|.. SyntheticPriceProvider
 CsvExporter ..> SimulationResult
 MetricsCalculator ..> SimulationResult
@@ -416,7 +445,12 @@ end note
 note bottom of SyntheticWeatherProvider
   Pogoda bez internetu, powtarzalna:
   ten sam seed + ten sam dzień = ta sama pogoda.
-  W M2 obok: OpenMeteoWeatherProvider.
+end note
+
+note bottom of OpenMeteoWeatherProvider
+  Prawdziwa pogoda: Forecast API (co 15 min, ~92 dni wstecz
+  i 15 dni naprzód) albo Historical API (co godzinę, starsze dni).
+  Testy podstawiają HttpFetcher z nagranymi odpowiedziami.
 end note
 
 ' --- kompozycja rekordów ---

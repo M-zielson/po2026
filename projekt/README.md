@@ -23,7 +23,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
 | M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ zaimplementowane: PV, profile i bilans; bateria i wiatrak w M2 |
-| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | 🔄 w toku: gotowe `MetricsCalculator` (KPI doby) |
+| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | 🔄 w toku: gotowe `MetricsCalculator` (KPI doby), `OpenMeteoWeatherProvider` (prawdziwa pogoda) |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
 
@@ -164,6 +164,35 @@ którego komunikat wskazuje plik, element i problem (przy błędzie składni tak
 - wiatrak ma `ratedPowerKw > 0`, magazyn ma `capacityKwh > 0` i `ratedPowerKw > 0`,
 - jest **dokładnie jedno** przyłącze `GRID` i **najwyżej jeden** magazyn `BATTERY`,
 - nieznane pola są błędem – literówka typu `ratedPowerKW` nie zostanie po cichu zignorowana.
+
+## Prawdziwa pogoda (Open-Meteo)
+
+`OpenMeteoWeatherProvider` z modułu `vpp-data` (pakiet `weather`) pobiera prawdziwą pogodę z
+[Open-Meteo](https://open-meteo.com) – bez klucza, do użytku niekomercyjnego. To druga
+implementacja interfejsu `WeatherProvider`, wymienna z pogodą syntetyczną bez zmian w silniku.
+
+| Źródło | Zakres dat | Rozdzielczość |
+|---|---|---|
+| Forecast API (`api.open-meteo.com`) | ok. 92 dni wstecz do 15 dni naprzód | co 15 minut (`minutely_15`) |
+| Historical Weather API (`archive-api.open-meteo.com`) | starsze dni | co godzinę (`hourly`) |
+
+Pobierane wielkości: `global_tilted_irradiance` (promieniowanie na panel nachylony pod kątem
+`PANEL_TILT_DEG` = 35°, zwrócony na południe), `wind_speed_80m` [m/s], `temperature_2m` [°C],
+`cloud_cover` [%].
+
+**Dopasowanie do kroków doby.** Zapytanie obejmuje wszystkie dni UTC, w które wpada lokalna doba
+(np. doba 1.10 czasu letniego zaczyna się 30.09 o 22:00 UTC), więc dni zmiany czasu (92 i 100
+kroków) wychodzą poprawnie. Promieniowanie w Open-Meteo to średnia z okresu **kończącego się**
+o podanej godzinie – krok 12:00–12:15 dostaje wartość z 12:15 (przy danych godzinowych: z pełnej
+godziny, w której leży krok). Temperatura, wiatr i zachmurzenie to wartości chwilowe; przy danych
+godzinowych interpolujemy je liniowo.
+
+**Błędy.** Brak sieci (limit 10 s), błąd HTTP, odrzucone zapytanie (np. data poza zakresem),
+brakująca wartość albo dzień dalej niż 15 dni naprzód kończą się wyjątkiem
+`WeatherUnavailableException` z czytelnym komunikatem.
+
+**Testy** nie łączą się z internetem: interfejs `HttpFetcher` pozwala podstawić prawdziwe
+odpowiedzi Open-Meteo nagrane w `vpp-data/src/test/resources/open-meteo/`.
 
 ## Format pliku CSV z wynikami
 
@@ -316,6 +345,7 @@ Diagramy w PlantUML, w katalogu [`uml/`](uml/):
 | [`01-przypadki-uzycia.puml`](uml/01-przypadki-uzycia.puml) | co może zrobić operator osiedla; Open-Meteo jako system zewnętrzny |
 | [`02-sekwencja-symulacja-dnia.puml`](uml/02-sekwencja-symulacja-dnia.puml) | przebieg symulacji jednej doby krok po kroku |
 | [`02-sekwencja-tryb-konsolowy.puml`](uml/02-sekwencja-tryb-konsolowy.puml) | tryb konsolowy: od argumentów, przez symulację, do pliku CSV i podsumowania |
+| [`02-sekwencja-pogoda-open-meteo.puml`](uml/02-sekwencja-pogoda-open-meteo.puml) | pobranie prawdziwej pogody: wybór źródła, zapytanie HTTP, dopasowanie do kroków, błędy |
 | [`02-sekwencja-zmiana-strategii.puml`](uml/02-sekwencja-zmiana-strategii.puml) | zmiana strategii przez operatora *(w przygotowaniu)* |
 | [`03-diagram-klas.puml`](uml/03-diagram-klas.puml) | klasy kontraktu `vpp-domain` oraz modułów `vpp-data` i `vpp-app` |
 
@@ -333,7 +363,7 @@ Podgląd: plugin *PlantUML Integration* w IntelliJ IDEA (diagram klas wymaga Gra
 | pokrycie testami | JaCoCo |
 | CI | GitHub Actions (`mvn -B verify`) |
 | *planowane:* serwer HTTP | Javalin (REST, SSE) |
-| *planowane:* pogoda | Open-Meteo API |
+| pogoda | Open-Meteo (Forecast i Historical Weather API), `java.net.http.HttpClient` |
 | *planowane:* frontend | Vite, React, TypeScript, Three.js, Apache ECharts |
 
 ---

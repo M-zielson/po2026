@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.agh.po.vpp.data.EstateLoader;
 import pl.agh.po.vpp.data.export.CsvExporter;
+import pl.agh.po.vpp.data.metrics.MetricsCalculator;
 import pl.agh.po.vpp.data.price.SyntheticPriceProvider;
 import pl.agh.po.vpp.data.weather.SyntheticWeatherProvider;
 import pl.agh.po.vpp.domain.EstateConfig;
@@ -85,7 +86,7 @@ public final class Main {
             new CsvExporter().write(result, options.outputFile());
             log.info("Zapisano {} kroków do {}", result.steps().size(), options.outputFile());
 
-            out.println(DaySummary.of(result).format());
+            out.println(ConsoleMetricsFormatter.format(new MetricsCalculator().calculate(result)));
             out.println("Zapisano: " + options.outputFile());
             return EXIT_OK;
         } catch (InvalidEstateException | UncheckedIOException e) {

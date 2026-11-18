@@ -23,7 +23,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
 | M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ zaimplementowane: PV, profile i bilans; bateria i wiatrak w M2 |
-| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
+| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | 🔄 w toku: gotowe `MetricsCalculator` (KPI doby) |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
 
@@ -190,6 +190,34 @@ Przesunięcie strefy w kolumnie `time` sprawia, że w dniu zmiany czasu powtórz
 jest jednoznaczna (`02:15+02:00` i `02:15+01:00`). W polskim Excelu plik otwiera się przez
 *Dane → Z tekstu/CSV* (separator: przecinek).
 
+## Metryki doby (KPI)
+
+Metryki całej doby liczy `MetricsCalculator` z modułu `vpp-data` (pakiet `metrics`) i zwraca je
+jako rekord `DayMetrics`. Z nich korzystają podsumowanie trybu konsolowego i karty KPI panelu.
+Energia kroku to moc × długość kroku (15 min = 0,25 h); sumy liczymy po wszystkich krokach doby.
+
+| Metryka | Wzór | Jednostka |
+|---|---|---|
+| produkcja, zużycie | Σ `production_kw`, Σ `consumption_kw` × 0,25 h | kWh |
+| import, eksport | Σ `import_kw`, Σ `export_kw` × 0,25 h | kWh |
+| ładowanie, rozładowanie magazynu | Σ dodatniego i ujemnego `battery_kw` × 0,25 h | kWh |
+| **samowystarczalność** | (zużycie − import) / zużycie, przycięte do 0–1 | % |
+| autokonsumpcja | (produkcja − eksport) / produkcja, przycięte do 0–1 | % |
+| koszt importu | Σ import × cena | PLN |
+| przychód z eksportu | Σ eksport × cena × współczynnik ceny sprzedaży | PLN |
+| **koszt dnia** | koszt importu − przychód z eksportu (ujemny = osiedle zarobiło) | PLN |
+| szczyt importu / eksportu | największy chwilowy import / eksport | kW |
+
+- Samowystarczalność mówi, jaka część zużycia nie musiała przyjść z sieci; autokonsumpcja – jaka
+  część własnej produkcji została w osiedlu.
+- Gdy nie da się policzyć wskaźnika (np. autokonsumpcja w dobie bez produkcji), ma on brak wartości
+  (`null` w JSON, „—” w konsoli), a nie 0%.
+- Przycięcie do 0–1 jest potrzebne, bo np. ładowanie magazynu z sieci daje import większy niż zużycie.
+- Kontrakt ma jedną cenę energii na krok. Współczynnik ceny sprzedaży (domyślnie 1,0 – sprzedaż po
+  cenie zakupu) pozwala uwzględnić tańszą sprzedaż energii przez prosumenta, np. 0,5.
+- Poprawność metryk sprawdza test na małym scenariuszu liczonym ręcznie (`MetricsCalculatorTest`)
+  oraz test właściwościowy jqwik: bilans energii całej doby zawsze się zgadza.
+
 ## Wymagania i budowanie
 
 - Java 25 (JDK)
@@ -209,7 +237,8 @@ Budowanie tworzy też jeden plik wykonywalny ze wszystkimi zależnościami: `vpp
 ## Uruchomienie trybu konsolowego
 
 Tryb konsolowy liczy jedną dobę osiedla na danych syntetycznych (pogoda i ceny z seeda),
-rysuje pasek postępu, wypisuje podsumowanie energii i zapisuje wyniki do CSV. Uruchamiamy z
+rysuje pasek postępu, wypisuje metryki doby (energia, samowystarczalność, koszt – patrz
+[Metryki doby](#metryki-doby-kpi)) i zapisuje wyniki do CSV. Uruchamiamy z
 katalogu `projekt/`, bo stamtąd liczona jest domyślna ścieżka do `data/estate.json`:
 
 ```bash

@@ -324,6 +324,29 @@ package "vpp-data (pl.agh.po.vpp.data)" {
             + write(r : SimulationResult, out : Writer)
         }
     }
+
+    package "metrics" {
+        class MetricsCalculator {
+            - exportPriceFactor : double
+            + MetricsCalculator(exportPriceFactor : double)
+            + calculate(r : SimulationResult) : DayMetrics
+        }
+        class DayMetrics <<record>> {
+            productionKwh : double
+            consumptionKwh : double
+            importKwh : double
+            exportKwh : double
+            batteryChargeKwh : double
+            batteryDischargeKwh : double
+            selfSufficiency : Double
+            selfConsumption : Double
+            importCostPln : double
+            exportRevenuePln : double
+            netCostPln : double
+            peakImportKw : double
+            peakExportKw : double
+        }
+    }
 }
 
 EstateLoader ..> EstateConfig : <<create>>
@@ -331,6 +354,8 @@ EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
 PriceProvider <|.. SyntheticPriceProvider
 CsvExporter ..> SimulationResult
+MetricsCalculator ..> SimulationResult
+MetricsCalculator ..> DayMetrics : <<create>>
 
 package "vpp-app (pl.agh.po.vpp.app)" {
     class Main <<final>> {
@@ -356,14 +381,8 @@ package "vpp-app (pl.agh.po.vpp.app)" {
         + onStep(s : StepResult)
         + onFinished(r : SimulationResult)
     }
-    class DaySummary <<record>> {
-        productionKwh : double
-        consumptionKwh : double
-        importKwh : double
-        exportKwh : double
-        --
-        + {static} of(r : SimulationResult) : DaySummary
-        + format() : String
+    class ConsoleMetricsFormatter <<final>> {
+        + {static} format(m : DayMetrics) : String
     }
 }
 
@@ -378,7 +397,9 @@ Main ..> SyntheticWeatherProvider : <<create>>
 Main ..> SyntheticPriceProvider : <<create>>
 Main ..> CsvExporter
 Main ..> ConsoleProgressListener : <<create>>
-Main ..> DaySummary
+Main ..> MetricsCalculator
+Main ..> ConsoleMetricsFormatter
+ConsoleMetricsFormatter ..> DayMetrics
 DaySimulator ..> SimulationResult : <<create>>
 
 note bottom of EngineDaySimulator

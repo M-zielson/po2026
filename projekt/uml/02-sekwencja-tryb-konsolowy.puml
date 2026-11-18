@@ -14,6 +14,7 @@ participant "SyntheticWeatherProvider\n(vpp-data)" as Weather
 participant "SyntheticPriceProvider\n(vpp-data)" as Prices
 participant "ConsoleProgressListener\n(vpp-app)" as Progress
 participant "CsvExporter\n(vpp-data)" as Csv
+participant "MetricsCalculator\n(vpp-data)" as Metrics
 
 Użytkownik -> Main : java -jar vpp-app.jar ~--date RRRR-MM-DD ~--seed N
 Main -> Cli : parse(args, dzisiaj)
@@ -59,6 +60,8 @@ Adapter --> Main : SimulationResult
 
 Main -> Csv : write(result, outputFile)
 Csv --> Main : plik CSV (nagłówek + wiersz na krok)
-Main -> Main : DaySummary.of(result)
-Main --> Użytkownik : podsumowanie kWh, ścieżka pliku, kod wyjścia 0
+Main -> Metrics : calculate(result)
+Metrics --> Main : DayMetrics
+Main -> Main : ConsoleMetricsFormatter.format(metrics)
+Main --> Użytkownik : energia, samowystarczalność, koszt dnia,\nścieżka pliku, kod wyjścia 0
 @enduml

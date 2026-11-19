@@ -11,23 +11,30 @@ import java.time.format.DateTimeParseException;
  * @param seed       ziarno danych syntetycznych (ten sam seed = ten sam wynik)
  * @param estateFile plik opisu osiedla
  * @param outputFile plik wynikowy CSV
+ * @param weather    źródło pogody
+ * @param cacheDir   katalog cache prawdziwej pogody
  */
-public record CliOptions(LocalDate date, long seed, Path estateFile, Path outputFile) {
+public record CliOptions(LocalDate date, long seed, Path estateFile, Path outputFile,
+                         WeatherSource weather, Path cacheDir) {
 
     public static final Path DEFAULT_ESTATE_FILE = Path.of("data", "estate.json");
     public static final long DEFAULT_SEED = 42L;
+    public static final WeatherSource DEFAULT_WEATHER = WeatherSource.OPENMETEO;
+    public static final Path DEFAULT_CACHE_DIR = Path.of("data", "weather-cache");
 
     public static final String USAGE = """
             Użycie: java -jar vpp-app.jar [opcje]
               --date RRRR-MM-DD   dzień symulacji (domyślnie dzisiaj)
-              --seed LICZBA       ziarno danych syntetycznych (domyślnie 42)
+              --weather ŹRÓDŁO    openmeteo (prawdziwa pogoda, domyślnie) albo synthetic
+              --cache-dir KATALOG cache prawdziwej pogody (domyślnie data/weather-cache)
+              --seed LICZBA       ziarno danych syntetycznych: pogody (synthetic) i cen (domyślnie 42)
               --estate PLIK       plik osiedla (domyślnie data/estate.json)
               --out PLIK          plik wynikowy CSV (domyślnie wynik-<data>.csv)
               --help              ta pomoc""";
 
     public CliOptions {
-        if (date == null || estateFile == null || outputFile == null) {
-            throw new IllegalArgumentException("Brak daty, pliku osiedla albo pliku wynikowego");
+        if (date == null || estateFile == null || outputFile == null || weather == null || cacheDir == null) {
+            throw new IllegalArgumentException("Brak daty, plików, źródła pogody albo katalogu cache");
         }
     }
 
@@ -42,6 +49,8 @@ public record CliOptions(LocalDate date, long seed, Path estateFile, Path output
         long seed = DEFAULT_SEED;
         Path estateFile = DEFAULT_ESTATE_FILE;
         Path outputFile = null;
+        WeatherSource weather = DEFAULT_WEATHER;
+        Path cacheDir = DEFAULT_CACHE_DIR;
 
         for (int i = 0; i < args.length; i += 2) {
             String option = args[i];
@@ -54,6 +63,8 @@ public record CliOptions(LocalDate date, long seed, Path estateFile, Path output
                 case "--seed" -> seed = parseSeed(value);
                 case "--estate" -> estateFile = Path.of(value);
                 case "--out" -> outputFile = Path.of(value);
+                case "--weather" -> weather = WeatherSource.fromOption(value);
+                case "--cache-dir" -> cacheDir = Path.of(value);
                 default -> throw new IllegalArgumentException("Nieznana opcja: " + option);
             }
         }
@@ -61,7 +72,7 @@ public record CliOptions(LocalDate date, long seed, Path estateFile, Path output
         if (outputFile == null) {
             outputFile = Path.of("wynik-" + date + ".csv");
         }
-        return new CliOptions(date, seed, estateFile, outputFile);
+        return new CliOptions(date, seed, estateFile, outputFile, weather, cacheDir);
     }
 
     private static LocalDate parseDate(String value) {

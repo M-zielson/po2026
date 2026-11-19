@@ -1,5 +1,5 @@
 @startuml
-title Sekwencja - tryb konsolowy (M1): jedna doba na danych syntetycznych
+title Sekwencja - tryb konsolowy: jedna doba (pogoda z Open-Meteo albo syntetyczna)
 autonumber
 
 actor Użytkownik
@@ -10,12 +10,13 @@ participant "DaySimulator:\nEngineDaySimulator\n(vpp-app)" as Adapter
 participant EstateBuilder as Builder
 participant Simulation as Sim
 participant VirtualPowerPlant as VPP
-participant "SyntheticWeatherProvider\n(vpp-data)" as Weather
+participant "WeatherProvider:\nCaching(OpenMeteo) albo Synthetic\n(vpp-data)" as Weather
 participant "SyntheticPriceProvider\n(vpp-data)" as Prices
 participant "ConsoleProgressListener\n(vpp-app)" as Progress
 participant "CsvExporter\n(vpp-data)" as Csv
+participant "MetricsCalculator\n(vpp-data)" as Metrics
 
-Użytkownik -> Main : java -jar vpp-app.jar ~--date RRRR-MM-DD ~--seed N
+Użytkownik -> Main : java -jar vpp-app.jar ~--date RRRR-MM-DD ~--weather openmeteo|synthetic
 Main -> Cli : parse(args, dzisiaj)
 alt błędne argumenty
     Cli --> Main : IllegalArgumentException
@@ -31,6 +32,7 @@ end
 Loader --> Main : EstateConfig
 
 Main -> Main : Timeline.of(date, strefa osiedla)\nOperatorSettings z seedem
+Main -> Main : weatherProvider(options):\nopenmeteo → CachingWeatherProvider(OpenMeteoWeatherProvider)\nsynthetic → SyntheticWeatherProvider(seed)
 
 Main -> Adapter : simulate(estate, timeline, settings,\nweather, prices, [progress])
 Adapter -> Builder : build(estate)
@@ -38,6 +40,12 @@ Builder --> Adapter : plant
 Adapter -> Sim : new Simulation(plant, location, settings, weather, prices, [progress])
 Adapter -> Sim : run(timeline)
 Sim -> Weather : weatherFor(timeline, location)
+alt brak pogody (brak internetu i dnia w cache, dzień za daleko w przyszłości)
+    Weather --> Sim : WeatherUnavailableException
+    Sim --> Adapter : WeatherUnavailableException
+    Adapter --> Main : WeatherUnavailableException
+    Main --> Użytkownik : komunikat + podpowiedź ~--weather synthetic, kod wyjścia 1
+end
 Weather --> Sim : List<Weather>
 Sim -> Prices : pricesFor(timeline)
 Prices --> Sim : List<Double>
@@ -48,12 +56,19 @@ loop dla każdego kroku (zwykle 96)
     Sim -> Progress : onStep(stepResult)
     Progress --> Użytkownik : pasek postępu: n/96 kroków
 end
+alt błąd silnika (niezgodny bilans, złe dane providera)
+    Sim --> Adapter : IllegalStateException
+    Adapter --> Main : IllegalStateException
+    Main --> Użytkownik : "Błąd symulacji: ...", ślad w logu, kod wyjścia 3
+end
 Sim -> Progress : onFinished(result)
 Sim --> Adapter : SimulationResult
 Adapter --> Main : SimulationResult
 
 Main -> Csv : write(result, outputFile)
 Csv --> Main : plik CSV (nagłówek + wiersz na krok)
-Main -> Main : DaySummary.of(result)
-Main --> Użytkownik : podsumowanie kWh, ścieżka pliku, kod wyjścia 0
+Main -> Metrics : calculate(result)
+Metrics --> Main : DayMetrics
+Main -> Main : ConsoleMetricsFormatter.format(metrics)
+Main --> Użytkownik : energia, samowystarczalność, koszt dnia,\nścieżka pliku, kod wyjścia 0
 @enduml

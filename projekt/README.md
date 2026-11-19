@@ -23,7 +23,7 @@ Projekt zaliczeniowy z Programowania Obiektowego (AGH, 2026/27).
 |---|---|---|
 | M0 Start | kontrakt `vpp-domain`, szkielet modułów, CI, diagramy | ✅ gotowe |
 | M1 Szkielet end-to-end | tryb konsolowy liczy dobę z danych syntetycznych i zapisuje CSV | ✅ zaimplementowane: PV, profile i bilans; bateria i wiatrak w M2 |
-| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | ⏳ |
+| M2 Bateria i aplikacja | prawdziwa pogoda, bateria i wiatrak, panel z wykresami | 🔄 w toku: gotowe `MetricsCalculator` (KPI doby), `OpenMeteoWeatherProvider` (prawdziwa pogoda), `CachingWeatherProvider` (praca bez internetu) |
 | M3 Sterowanie i animacja | zmiana strategii, sterowanie magazynem, awarie, animowana scena | ⏳ |
 | M4 Stabilizacja | pokrycie testami ≥ 80%, dokumentacja, poprawki | ⏳ |
 
@@ -165,6 +165,60 @@ którego komunikat wskazuje plik, element i problem (przy błędzie składni tak
 - jest **dokładnie jedno** przyłącze `GRID` i **najwyżej jeden** magazyn `BATTERY`,
 - nieznane pola są błędem – literówka typu `ratedPowerKW` nie zostanie po cichu zignorowana.
 
+## Prawdziwa pogoda (Open-Meteo)
+
+`OpenMeteoWeatherProvider` z modułu `vpp-data` (pakiet `weather`) pobiera prawdziwą pogodę z
+[Open-Meteo](https://open-meteo.com) – bez klucza, do użytku niekomercyjnego. To druga
+implementacja interfejsu `WeatherProvider`, wymienna z pogodą syntetyczną bez zmian w silniku.
+
+| Źródło | Zakres dat | Rozdzielczość |
+|---|---|---|
+| Forecast API (`api.open-meteo.com`) | ok. 92 dni wstecz do 15 dni naprzód | co 15 minut (`minutely_15`) |
+| Historical Weather API (`archive-api.open-meteo.com`) | starsze dni | co godzinę (`hourly`) |
+
+Pobierane wielkości: `global_tilted_irradiance` (promieniowanie na panel nachylony pod kątem
+`PANEL_TILT_DEG` = 35°, zwrócony na południe), `wind_speed_80m` [m/s], `temperature_2m` [°C],
+`cloud_cover` [%].
+
+**Dopasowanie do kroków doby.** Zapytanie obejmuje wszystkie dni UTC, w które wpada lokalna doba
+(np. doba 1.10 czasu letniego zaczyna się 30.09 o 22:00 UTC), więc dni zmiany czasu (92 i 100
+kroków) wychodzą poprawnie. Promieniowanie w Open-Meteo to średnia z okresu **kończącego się**
+o podanej godzinie – krok 12:00–12:15 dostaje wartość z 12:15 (przy danych godzinowych: z pełnej
+godziny, w której leży krok). Temperatura, wiatr i zachmurzenie to wartości chwilowe; przy danych
+godzinowych interpolujemy je liniowo.
+
+**Błędy.** Brak sieci (limit 10 s), błąd HTTP, odrzucone zapytanie (np. data poza zakresem),
+brakująca wartość albo dzień dalej niż 15 dni naprzód kończą się wyjątkiem
+`WeatherUnavailableException` z czytelnym komunikatem.
+
+**Testy** nie łączą się z internetem: interfejs `HttpFetcher` pozwala podstawić prawdziwe
+odpowiedzi Open-Meteo nagrane w `vpp-data/src/test/resources/open-meteo/`.
+
+### Cache pogody i praca bez internetu
+
+`CachingWeatherProvider` (wzorzec **Decorator**) sam jest `WeatherProvider` i opakowuje inny
+`WeatherProvider` – w trybie konsolowym `OpenMeteoWeatherProvider`. Dzień zapisany w pliku
+`data/weather-cache/<szerokość>_<długość>/<data>.json` czyta z dysku, bez wołania Open-Meteo;
+w przeciwnym razie pobiera pogodę i zapisuje plik.
+
+- Zapisuje tylko doby, które już się skończyły – prognoza na dziś i jutro jeszcze się zmienia.
+- Uszkodzony albo niepasujący plik (inne miejsce, strefa, krok) oznacza ponowne pobranie,
+  a błąd zapisu tylko ostrzeżenie w logu – cache nigdy nie psuje wyniku.
+- Zapis przez plik tymczasowy i przeniesienie, żeby nikt nie odczytał pliku zapisanego do połowy.
+
+**Dni zapisane w repo** – działają bez internetu (sprawdza to `SavedWeatherDaysTest`):
+
+| Dzień | Dlaczego |
+|---|---|
+| 2025-06-21 | słoneczne przesilenie letnie – najwięcej produkcji PV |
+| 2025-10-18 | najbardziej wietrzny dzień jesieni 2025 |
+| 2026-02-01 | pochmurny i mroźny dzień zimy – prawie brak PV, dużo ogrzewania |
+| 2025-03-30, 2025-10-26 | dni zmiany czasu (92 i 100 kroków) |
+| 2026-10-27 | słoneczny jesienny dzień z danych co 15 minut (Forecast API) |
+
+Katalog `data/weather-cache/` jest w `.gitignore`, żeby dni pobierane przy zwykłej pracy nie
+zaśmiecały repo. Nowy dzień demo dodaje się jawnie: `git add -f projekt/data/weather-cache/...`.
+
 ## Format pliku CSV z wynikami
 
 Wyniki symulacji doby zapisuje klasa `CsvExporter` z modułu `vpp-data`: nagłówek i jeden wiersz
@@ -190,6 +244,34 @@ Przesunięcie strefy w kolumnie `time` sprawia, że w dniu zmiany czasu powtórz
 jest jednoznaczna (`02:15+02:00` i `02:15+01:00`). W polskim Excelu plik otwiera się przez
 *Dane → Z tekstu/CSV* (separator: przecinek).
 
+## Metryki doby (KPI)
+
+Metryki całej doby liczy `MetricsCalculator` z modułu `vpp-data` (pakiet `metrics`) i zwraca je
+jako rekord `DayMetrics`. Z nich korzystają podsumowanie trybu konsolowego i karty KPI panelu.
+Energia kroku to moc × długość kroku (15 min = 0,25 h); sumy liczymy po wszystkich krokach doby.
+
+| Metryka | Wzór | Jednostka |
+|---|---|---|
+| produkcja, zużycie | Σ `production_kw`, Σ `consumption_kw` × 0,25 h | kWh |
+| import, eksport | Σ `import_kw`, Σ `export_kw` × 0,25 h | kWh |
+| ładowanie, rozładowanie magazynu | Σ dodatniego i ujemnego `battery_kw` × 0,25 h | kWh |
+| **samowystarczalność** | (zużycie − import) / zużycie, przycięte do 0–1 | % |
+| autokonsumpcja | (produkcja − eksport) / produkcja, przycięte do 0–1 | % |
+| koszt importu | Σ import × cena | PLN |
+| przychód z eksportu | Σ eksport × cena × współczynnik ceny sprzedaży | PLN |
+| **koszt dnia** | koszt importu − przychód z eksportu (ujemny = osiedle zarobiło) | PLN |
+| szczyt importu / eksportu | największy chwilowy import / eksport | kW |
+
+- Samowystarczalność mówi, jaka część zużycia nie musiała przyjść z sieci; autokonsumpcja – jaka
+  część własnej produkcji została w osiedlu.
+- Gdy nie da się policzyć wskaźnika (np. autokonsumpcja w dobie bez produkcji), ma on brak wartości
+  (`null` w JSON, „—” w konsoli), a nie 0%.
+- Przycięcie do 0–1 jest potrzebne, bo np. ładowanie magazynu z sieci daje import większy niż zużycie.
+- Kontrakt ma jedną cenę energii na krok. Współczynnik ceny sprzedaży (domyślnie 1,0 – sprzedaż po
+  cenie zakupu) pozwala uwzględnić tańszą sprzedaż energii przez prosumenta, np. 0,5.
+- Poprawność metryk sprawdza test na małym scenariuszu liczonym ręcznie (`MetricsCalculatorTest`)
+  oraz test właściwościowy jqwik: bilans energii całej doby zawsze się zgadza.
+
 ## Wymagania i budowanie
 
 - Java 25 (JDK)
@@ -208,25 +290,31 @@ Budowanie tworzy też jeden plik wykonywalny ze wszystkimi zależnościami: `vpp
 
 ## Uruchomienie trybu konsolowego
 
-Tryb konsolowy liczy jedną dobę osiedla na danych syntetycznych (pogoda i ceny z seeda),
-rysuje pasek postępu, wypisuje podsumowanie energii i zapisuje wyniki do CSV. Uruchamiamy z
+Tryb konsolowy liczy jedną dobę osiedla – domyślnie z prawdziwą pogodą z Open-Meteo (przez cache),
+albo z pogodą syntetyczną; ceny są na razie syntetyczne (z seeda). Rysuje pasek postępu, wypisuje metryki doby (energia, samowystarczalność, koszt – patrz
+[Metryki doby](#metryki-doby-kpi)) i zapisuje wyniki do CSV. Uruchamiamy z
 katalogu `projekt/`, bo stamtąd liczona jest domyślna ścieżka do `data/estate.json`:
 
 ```bash
 cd projekt
 mvn -B -q package -DskipTests
-java -jar vpp-app/target/vpp-app.jar --date 2026-06-21 --seed 42
+java -jar vpp-app/target/vpp-app.jar --date 2025-06-21                     # prawdziwa pogoda
+java -jar vpp-app/target/vpp-app.jar --date 2026-06-21 --weather synthetic # bez internetu, dowolny dzień
 ```
 
 | Opcja | Znaczenie | Domyślnie |
 |---|---|---|
 | `--date RRRR-MM-DD` | dzień symulacji | dzisiaj |
-| `--seed LICZBA` | ziarno danych syntetycznych; ten sam seed i dzień dają ten sam wynik | `42` |
+| `--weather ŹRÓDŁO` | `openmeteo` – prawdziwa pogoda przez cache; `synthetic` – pogoda z seeda | `openmeteo` |
+| `--cache-dir KATALOG` | katalog cache prawdziwej pogody | `data/weather-cache` |
+| `--seed LICZBA` | ziarno danych syntetycznych (cen oraz pogody przy `synthetic`); ten sam seed i dzień dają ten sam wynik | `42` |
 | `--estate PLIK` | plik opisu osiedla | `data/estate.json` |
 | `--out PLIK` | plik wynikowy CSV | `wynik-<data>.csv` |
 | `--help` | pomoc | |
 
-Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV), `2` błędne argumenty.
+Kody wyjścia: `0` sukces, `1` błąd danych (plik osiedla, zapis CSV, brak pogody – np. brak internetu
+dla dnia spoza cache), `2` błędne argumenty,
+`3` błąd symulacji w silniku (np. niezgodny bilans) – wtedy pełny ślad błędu trafia do logu.
 Logi (SLF4J + Logback) trafiają na standardowe wyjście błędów, wyniki na standardowe wyjście.
 
 `EngineDaySimulator` składa osiedle przez `EstateBuilder` i uruchamia `Simulation`.
@@ -286,6 +374,7 @@ Diagramy w PlantUML, w katalogu [`uml/`](uml/):
 | [`01-przypadki-uzycia.puml`](uml/01-przypadki-uzycia.puml) | co może zrobić operator osiedla; Open-Meteo jako system zewnętrzny |
 | [`02-sekwencja-symulacja-dnia.puml`](uml/02-sekwencja-symulacja-dnia.puml) | przebieg symulacji jednej doby krok po kroku |
 | [`02-sekwencja-tryb-konsolowy.puml`](uml/02-sekwencja-tryb-konsolowy.puml) | tryb konsolowy: od argumentów, przez symulację, do pliku CSV i podsumowania |
+| [`02-sekwencja-pogoda-open-meteo.puml`](uml/02-sekwencja-pogoda-open-meteo.puml) | pobranie prawdziwej pogody: wybór źródła, zapytanie HTTP, dopasowanie do kroków, błędy |
 | [`02-sekwencja-zmiana-strategii.puml`](uml/02-sekwencja-zmiana-strategii.puml) | zmiana strategii przez operatora *(w przygotowaniu)* |
 | [`03-diagram-klas.puml`](uml/03-diagram-klas.puml) | klasy kontraktu `vpp-domain` oraz modułów `vpp-data` i `vpp-app` |
 
@@ -303,7 +392,7 @@ Podgląd: plugin *PlantUML Integration* w IntelliJ IDEA (diagram klas wymaga Gra
 | pokrycie testami | JaCoCo |
 | CI | GitHub Actions (`mvn -B verify`) |
 | *planowane:* serwer HTTP | Javalin (REST, SSE) |
-| *planowane:* pogoda | Open-Meteo API |
+| pogoda | Open-Meteo (Forecast i Historical Weather API), `java.net.http.HttpClient` |
 | *planowane:* frontend | Vite, React, TypeScript, Three.js, Apache ECharts |
 
 ---

@@ -18,6 +18,8 @@ class MainTest {
 
     /** Testy uruchamiają się w katalogu modułu vpp-app, plik osiedla leży w projekt/data. */
     private static final String ESTATE = Path.of("..", "data", "estate.json").toString();
+    /** Dni prawdziwej pogody zapisane w repo – testy z Open-Meteo działają bez internetu. */
+    private static final String SAVED_WEATHER = Path.of("..", "data", "weather-cache").toString();
 
     private final ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
     private final ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
@@ -26,6 +28,20 @@ class MainTest {
         return Main.run(args,
                 new PrintStream(outBuffer, true, StandardCharsets.UTF_8),
                 new PrintStream(errBuffer, true, StandardCharsets.UTF_8));
+    }
+
+    private int runWith(DaySimulator simulator, String... args) {
+        return Main.run(args,
+                new PrintStream(outBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(errBuffer, true, StandardCharsets.UTF_8),
+                simulator);
+    }
+
+    /** Silnik, który zawsze przerywa dobę podanym wyjątkiem – jak prawdziwy przy niezgodnym bilansie. */
+    private static DaySimulator failingWith(RuntimeException error) {
+        return (estate, timeline, settings, weather, prices, listeners) -> {
+            throw error;
+        };
     }
 
     private String out() {
@@ -40,12 +56,14 @@ class MainTest {
     void liczyDobeIZapisujeCsv(@TempDir Path dir) throws IOException {
         Path csv = dir.resolve("wynik.csv");
 
-        int exitCode = run("--date", "2026-11-13", "--seed", "42", "--estate", ESTATE, "--out", csv.toString());
+        int exitCode = run("--date", "2026-11-13", "--seed", "42", "--weather", "synthetic", "--estate", ESTATE,
+                "--out", csv.toString());
 
         assertThat(exitCode).isEqualTo(Main.EXIT_OK);
         List<String> lines = Files.readAllLines(csv, StandardCharsets.UTF_8);
         assertThat(lines).hasSize(1 + 96);
         assertThat(out()).contains("Osiedle Słoneczne", "96/96 kroków", "Import:", "Zapisano: " + csv);
+        assertThat(out()).contains("Samowystarczalność:", "Koszt dnia:");
         assertThat(out()).contains("Silnik M1").doesNotContain("stub", "zastępczy");
         assertThat(lines.subList(1, lines.size()).stream().map(line -> line.split(",")[2]).distinct().count())
                 .isGreaterThan(1);
@@ -57,8 +75,8 @@ class MainTest {
         Path first = dir.resolve("a.csv");
         Path second = dir.resolve("b.csv");
 
-        run("--date", "2026-06-21", "--seed", "7", "--estate", ESTATE, "--out", first.toString());
-        run("--date", "2026-06-21", "--seed", "7", "--estate", ESTATE, "--out", second.toString());
+        run("--date", "2026-06-21", "--seed", "7", "--weather", "synthetic", "--estate", ESTATE, "--out", first.toString());
+        run("--date", "2026-06-21", "--seed", "7", "--weather", "synthetic", "--estate", ESTATE, "--out", second.toString());
 
         assertThat(Files.readAllLines(first)).isEqualTo(Files.readAllLines(second));
     }
@@ -75,7 +93,7 @@ class MainTest {
     void nieDaSieZapisacPlikuToBladDanych(@TempDir Path dir) {
         Path csv = dir.resolve("brak-katalogu").resolve("w.csv");
 
-        int exitCode = run("--estate", ESTATE, "--out", csv.toString());
+        int exitCode = run("--weather", "synthetic", "--estate", ESTATE, "--out", csv.toString());
 
         assertThat(exitCode).isEqualTo(Main.EXIT_DATA_ERROR);
         assertThat(err()).contains("brak-katalogu");
@@ -93,5 +111,49 @@ class MainTest {
     void helpWypisujePomoc() {
         assertThat(run("--help")).isEqualTo(Main.EXIT_OK);
         assertThat(out()).contains("Użycie:", "--date", "--seed", "--estate", "--out");
+    }
+
+    @Test
+    void bladSilnikaToKod3ZCzytelnymKomunikatem(@TempDir Path dir) {
+        Path csv = dir.resolve("w.csv");
+
+        int exitCode = runWith(failingWith(new IllegalStateException("Niezgodny bilans lub przepływy zasobów")),
+                "--estate", ESTATE, "--out", csv.toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_SIMULATION_ERROR);
+        assertThat(err()).contains("Błąd symulacji: Niezgodny bilans");
+        assertThat(err()).doesNotContain("at pl.agh"); // ślad stosu idzie do logu, nie do komunikatu
+        assertThat(csv).doesNotExist();
+    }
+
+    @Test
+    void nieobslugiwaneUstawieniaSilnikaToTezBladSymulacji(@TempDir Path dir) {
+        int exitCode = runWith(failingWith(new IllegalArgumentException("M1 nie obsługuje jeszcze strategii")),
+                "--estate", ESTATE, "--out", dir.resolve("w.csv").toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_SIMULATION_ERROR);
+        assertThat(err()).contains("Błąd symulacji: M1 nie obsługuje");
+    }
+
+    @Test
+    void prawdziwaPogodaZDniaZapisanegoWRepoBezInternetu(@TempDir Path dir) throws IOException {
+        Path csv = dir.resolve("lato.csv");
+
+        int exitCode = run("--date", "2025-06-21", "--weather", "openmeteo", "--cache-dir", SAVED_WEATHER,
+                "--estate", ESTATE, "--out", csv.toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_OK);
+        assertThat(out()).contains("Pogoda: Open-Meteo", "96/96 kroków");
+        assertThat(Files.readAllLines(csv, StandardCharsets.UTF_8)).hasSize(1 + 96);
+    }
+
+    @Test
+    void brakPogodyToBladDanychZPodpowiedzia(@TempDir Path dir) {
+        // dzień daleko w przyszłości: Open-Meteo odmawia bez łączenia się z internetem
+        int exitCode = run("--date", "2099-01-01", "--weather", "openmeteo", "--cache-dir", dir.toString(),
+                "--estate", ESTATE, "--out", dir.resolve("w.csv").toString());
+
+        assertThat(exitCode).isEqualTo(Main.EXIT_DATA_ERROR);
+        assertThat(err()).contains("Błąd: Brak pogody dla 2099-01-01", "--weather synthetic");
     }
 }

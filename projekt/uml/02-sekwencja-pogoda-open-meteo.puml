@@ -1,0 +1,55 @@
+@startuml
+title Sekwencja - prawdziwa pogoda z Open-Meteo przez cache w plikach (M2)
+autonumber
+
+participant "Simulation\n(vpp-engine)" as Sim
+participant "CachingWeatherProvider\n(vpp-data, dekorator)" as Cache
+database "data/weather-cache/\n<miejsce>/<data>.json" as Files
+participant "OpenMeteoWeatherProvider\n(vpp-data)" as Provider
+participant "HttpFetcher:\nJdkHttpFetcher\n(vpp-data)" as Http
+participant "Open-Meteo\n(Forecast / Historical API)" as Api
+
+Sim -> Cache : weatherFor(timeline, location)
+Cache -> Files : odczytaj plik doby
+alt plik jest i pasuje (miejsce, strefa, krok, czasy)
+    Files --> Cache : CachedDay
+    Cache --> Sim : List<Weather>\n(bez internetu)
+else brak pliku / plik uszkodzony lub niezgodny
+    Cache -> Provider : weatherFor(timeline, location)
+    Provider -> Provider : dni UTC objęte lokalną dobą\n(np. 2026-09-30 i 2026-10-01 dla doby 1.10)
+    Provider -> Provider : sourceFor(dzień)
+    alt dzień dalej niż 15 dni naprzód
+        Provider --> Cache : WeatherUnavailableException\n(bez zapytania do API)
+        Cache --> Sim : WeatherUnavailableException
+    else ostatnie ~92 dni i najbliższe 15 dni
+        Provider -> Provider : FORECAST: minutely_15, co 15 min
+    else starsze dni
+        Provider -> Provider : ARCHIVE: hourly, co godzinę
+    end
+
+    Provider -> Http : get(uri: tilt=35, azimuth=0, timezone=GMT,\nstart_date, end_date)
+    Http -> Api : HTTP GET
+    alt brak sieci / limit czasu 10 s
+        Http --> Provider : IOException
+        Provider --> Cache : WeatherUnavailableException("Nie udało się pobrać...")
+        Cache --> Sim : WeatherUnavailableException
+    end
+    Api --> Http : JSON (albo {"error": true, "reason": ...})
+    Http --> Provider : HttpResult(status, body)
+    alt błąd od Open-Meteo / zły kod HTTP / brak wartości
+        Provider --> Cache : WeatherUnavailableException z opisem
+        Cache --> Sim : WeatherUnavailableException
+    end
+
+    loop każdy krok t z timeline.steps() (96, w dni zmiany czasu 92/100)
+        Provider -> Provider : promieniowanie z okresu kończącego się\nna końcu kroku (t + 15 min lub pełna godzina)
+        Provider -> Provider : wiatr, temperatura, zachmurzenie w chwili t\n(przy danych godzinowych: interpolacja liniowa)
+    end
+    Provider --> Cache : List<Weather>
+    opt doba już się skończyła
+        Cache -> Files : zapis przez plik tymczasowy + przeniesienie
+        note right of Files : błąd zapisu = tylko ostrzeżenie w logu
+    end
+    Cache --> Sim : List<Weather>
+end
+@enduml

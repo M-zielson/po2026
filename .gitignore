@@ -51,6 +51,9 @@ Thumbs.db
 *.log
 # Wyniki próbnych uruchomień trybu konsolowego (java -jar vpp-app.jar bez --out)
 projekt/wynik-*.csv
+# Cache prawdziwej pogody z Open-Meteo. Dni demo do pracy bez internetu są w repo, dodane
+# jednorazowo przez `git add -f` – Git śledzi je dalej mimo tej reguły.
+projekt/data/weather-cache/
 
 # Zabezpieczenie przed przypadkowym commitem wyeksportowanych diagramów.
 # Prowadzący wymaga TYLKO plików *.puml[cite: 1, 19]

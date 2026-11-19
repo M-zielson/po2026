@@ -24,6 +24,8 @@ class CliOptionsTest {
         assertThat(options.seed()).isEqualTo(42);
         assertThat(options.estateFile()).isEqualTo(Path.of("data", "estate.json"));
         assertThat(options.outputFile()).isEqualTo(Path.of("wynik-2026-11-13.csv"));
+        assertThat(options.weather()).isEqualTo(WeatherSource.OPENMETEO);
+        assertThat(options.cacheDir()).isEqualTo(Path.of("data", "weather-cache"));
     }
 
     @Test
@@ -69,5 +71,21 @@ class CliOptionsTest {
         assertThatThrownBy(() -> parse("--date"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("--date");
+    }
+
+    @Test
+    void zrodloPogodyIKatalogCache() {
+        CliOptions options = parse("--weather", "synthetic", "--cache-dir", "/tmp/pogoda");
+
+        assertThat(options.weather()).isEqualTo(WeatherSource.SYNTHETIC);
+        assertThat(options.cacheDir()).isEqualTo(Path.of("/tmp/pogoda"));
+    }
+
+    @Test
+    void nieznaneZrodloPogodyToBladZListaDozwolonych() {
+        assertThatThrownBy(() -> parse("--weather", "meteo"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("meteo")
+                .hasMessageContaining("openmeteo, synthetic");
     }
 }

@@ -6,6 +6,8 @@ import pl.agh.po.vpp.data.EstateLoader;
 import pl.agh.po.vpp.data.export.CsvExporter;
 import pl.agh.po.vpp.data.metrics.MetricsCalculator;
 import pl.agh.po.vpp.data.price.SyntheticPriceProvider;
+import pl.agh.po.vpp.data.weather.CachingWeatherProvider;
+import pl.agh.po.vpp.data.weather.OpenMeteoWeatherProvider;
 import pl.agh.po.vpp.data.weather.SyntheticWeatherProvider;
 import pl.agh.po.vpp.domain.EstateConfig;
 import pl.agh.po.vpp.domain.InvalidEstateException;
@@ -13,6 +15,8 @@ import pl.agh.po.vpp.domain.OperatorSettings;
 import pl.agh.po.vpp.domain.SimulationListener;
 import pl.agh.po.vpp.domain.SimulationResult;
 import pl.agh.po.vpp.domain.Timeline;
+import pl.agh.po.vpp.domain.WeatherProvider;
+import pl.agh.po.vpp.domain.WeatherUnavailableException;
 
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
@@ -21,7 +25,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Tryb konsolowy: liczy jedną dobę osiedla na danych syntetycznych i zapisuje wyniki do CSV.
+ * Tryb konsolowy: liczy jedną dobę osiedla (pogoda z Open-Meteo albo syntetyczna, ceny syntetyczne)
+ * i zapisuje wyniki do CSV.
  * Uruchomienie: {@code java -jar vpp-app/target/vpp-app.jar --date 2026-11-13}; opcje w {@link CliOptions#USAGE}.
  */
 public final class Main {
@@ -76,10 +81,11 @@ public final class Main {
             out.printf("%s (%d elementów), %s, seed %d%n",
                     estate.name(), estate.assets().size(), options.date(), options.seed());
             out.println("Silnik M1: profile budynków i PV; wiatrak i magazyn energii nieaktywne do M2.");
+            out.println("Pogoda: " + describe(options));
 
             List<SimulationListener> listeners = List.of(new ConsoleProgressListener(out, timeline.size()));
             SimulationResult result = simulator.simulate(estate, timeline, settings,
-                    new SyntheticWeatherProvider(options.seed()),
+                    weatherProvider(options),
                     new SyntheticPriceProvider(options.seed()),
                     listeners);
 
@@ -93,6 +99,13 @@ public final class Main {
             log.debug("Szczegóły błędu", e);
             err.println("Błąd: " + e.getMessage());
             return EXIT_DATA_ERROR;
+        } catch (WeatherUnavailableException e) {
+            // Pogodę pobiera się przed pierwszym krokiem, więc pasek postępu jeszcze się nie zaczął.
+            log.debug("Szczegóły błędu pogody", e);
+            err.println("Błąd: " + e.getMessage());
+            err.println("Użyj --weather synthetic albo dnia zapisanego w " + options.cacheDir()
+                    + " (działa też bez internetu)");
+            return EXIT_DATA_ERROR;
         } catch (IllegalStateException | IllegalArgumentException e) {
             // Silnik przerwał dobę (np. niezgodny bilans, niepoprawne dane providera, nieobsługiwane
             // ustawienia). To błąd programu, nie danych użytkownika, więc pełny ślad idzie do logu.
@@ -101,5 +114,20 @@ public final class Main {
             err.println("Błąd symulacji: " + e.getMessage());
             return EXIT_SIMULATION_ERROR;
         }
+    }
+
+    /** Pogoda wybrana opcją {@code --weather}: Open-Meteo zawsze przez cache w plikach (dekorator). */
+    static WeatherProvider weatherProvider(CliOptions options) {
+        return switch (options.weather()) {
+            case OPENMETEO -> new CachingWeatherProvider(new OpenMeteoWeatherProvider(), options.cacheDir());
+            case SYNTHETIC -> new SyntheticWeatherProvider(options.seed());
+        };
+    }
+
+    private static String describe(CliOptions options) {
+        return switch (options.weather()) {
+            case OPENMETEO -> "Open-Meteo (cache: " + options.cacheDir() + ")";
+            case SYNTHETIC -> "syntetyczna (seed " + options.seed() + ")";
+        };
     }
 }

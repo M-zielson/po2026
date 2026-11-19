@@ -307,6 +307,22 @@ package "vpp-data (pl.agh.po.vpp.data)" {
             ~ {static} clearSkyTiltedIrradianceWm2(time : Instant, l : Location) : double
             ~ {static} cloudFactor(cloudPct : double) : double
         }
+        class CachingWeatherProvider {
+            - delegate : WeatherProvider
+            - cacheDir : Path
+            - clock : Clock
+            + CachingWeatherProvider(delegate : WeatherProvider, cacheDir : Path)
+            + weatherFor(t : Timeline, l : Location) : List<Weather>
+            ~ fileFor(t : Timeline, l : Location) : Path
+        }
+        class "CachingWeatherProvider.CachedDay" as CachedDay <<record>> {
+            latitude : double
+            longitude : double
+            zone : ZoneId
+            date : LocalDate
+            step : Duration
+            weather : List<Weather>
+        }
         class OpenMeteoWeatherProvider {
             - fetcher : HttpFetcher
             - clock : Clock
@@ -376,6 +392,9 @@ EstateLoader ..> EstateConfig : <<create>>
 EstateLoader ..> InvalidEstateException : <<throws>>
 WeatherProvider <|.. SyntheticWeatherProvider
 WeatherProvider <|.. OpenMeteoWeatherProvider
+WeatherProvider <|.. CachingWeatherProvider
+CachingWeatherProvider o--> "1" WeatherProvider : delegate
+CachingWeatherProvider ..> CachedDay : zapis / odczyt JSON
 OpenMeteoWeatherProvider --> HttpFetcher
 OpenMeteoWeatherProvider ..> OpenMeteoSource
 OpenMeteoWeatherProvider ..> WeatherUnavailableException : <<throws>>
@@ -397,8 +416,17 @@ package "vpp-app (pl.agh.po.vpp.app)" {
         seed : long
         estateFile : Path
         outputFile : Path
+        weather : WeatherSource
+        cacheDir : Path
         --
         + {static} parse(args : String[], today : LocalDate) : CliOptions
+    }
+    enum WeatherSource {
+        OPENMETEO
+        SYNTHETIC
+        --
+        + optionValue() : String
+        + {static} fromOption(value : String) : WeatherSource
     }
     interface DaySimulator {
         simulate(estate : EstateConfig, t : Timeline, s : OperatorSettings,\n  w : WeatherProvider, p : PriceProvider, listeners : List<SimulationListener>) : SimulationResult
@@ -423,6 +451,9 @@ Main ..> CliOptions
 Main ..> DaySimulator
 Main ..> EstateLoader
 Main ..> SyntheticWeatherProvider : <<create>>
+Main ..> OpenMeteoWeatherProvider : <<create>>
+Main ..> CachingWeatherProvider : <<create>>
+CliOptions --> WeatherSource
 Main ..> SyntheticPriceProvider : <<create>>
 Main ..> CsvExporter
 Main ..> ConsoleProgressListener : <<create>>
@@ -445,6 +476,12 @@ end note
 note bottom of SyntheticWeatherProvider
   Pogoda bez internetu, powtarzalna:
   ten sam seed + ten sam dzień = ta sama pogoda.
+end note
+
+note bottom of CachingWeatherProvider
+  Wzorzec Decorator: jest WeatherProvider i opakowuje WeatherProvider.
+  Dzień w pliku = bez wołania opakowanego providera (bez internetu).
+  Zapisuje tylko doby, które się skończyły.
 end note
 
 note bottom of OpenMeteoWeatherProvider
